@@ -46,9 +46,17 @@ jobs:
             echo "upload status: ${code}"
             echo "upload body:   ${body}"
 
-            # Pull the first https URL out of the body: some hosts answer with the bare URL,
-            # others with JSON around it.
-            url=$(grep -oE 'https://[^"[:space:]\\]+' <<<"$body" | head -1)
+            # Most hosts answer with the bare URL. The ones that answer with JSON, or that
+            # return an id the caller has to build a raw URL from, set EXTRACT to a jq
+            # expression first — the URL a browser is shown is often a viewer page, and the
+            # viewer page is `text/html` no matter what was uploaded.
+            if [[ "${EXTRACT:-}" == jq:* ]]; then
+              url=$(jq -r "${EXTRACT#jq:}" <"$RUNNER_TEMP/body" 2>/dev/null)
+            else
+              url=$(grep -oE 'https://[^"[:space:]\\]+' <<<"$body" | head -1)
+            fi
+            EXTRACT=''
+            [[ "$url" == https://* ]] || url=''
             if [[ -n "$url" ]]; then
               ct=$(curl --silent --show-error --location --head --max-time 30 --user-agent "$ua" \
                 --write-out '%{http_code} %{content_type}' --output /dev/null "$url" 2>&1) \
@@ -87,6 +95,19 @@ jobs:
           # Short-lived; probed to complete the picture, not as candidates.
           probe 'uguu.se (3 hours)' 'https://uguu.se/upload?output=text' --form "files[]=@${svg}"
           probe 'tmpfiles.org (1 hour)' https://tmpfiles.org/api/v1/upload --form "file=@${svg}"
+
+          # Pixeldrain is the only host on the usual "Catbox alternatives" lists that exposes a
+          # raw file endpoint rather than a viewer page, so it is the only one of them that can
+          # plausibly serve image/*. Note the retention: 60 days from the last *view*, which a
+          # comment nobody opens will not survive. That failure mode is a picture that works for
+          # months and then quietly disappears from old comments.
+          EXTRACT='jq:"https://pixeldrain.com/api/file/" + .id'
+          probe 'pixeldrain.com (60 days idle)' https://pixeldrain.com/api/file --form "file=@${svg}"
+
+          # Long shot: GoFile hands guests a download page, and a direct link has historically
+          # been an account feature. Probed to find out rather than to assume.
+          EXTRACT='jq:.data.directLink // .data.downloadPage // empty'
+          probe 'gofile.io (10 days idle)' https://upload.gofile.io/uploadfile --form "file=@${svg}"
 
       - name: Summarise
         if: always()
