@@ -6,7 +6,42 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { setOutput, notice, warning, error, escapeAnnotation } = require('../src/workflow.js')
+const {
+  setOutput,
+  notice,
+  warning,
+  error,
+  escapeAnnotation,
+  workflowFileFromRef,
+} = require('../src/workflow.js')
+
+test('the workflow file is derived from GITHUB_WORKFLOW_REF', () => {
+  assert.strictEqual(
+    workflowFileFromRef('acme/parcel/.github/workflows/ci.yml@refs/heads/main'),
+    'ci.yml',
+  )
+  assert.strictEqual(
+    workflowFileFromRef('acme/parcel/.github/workflows/coverage.yaml@refs/heads/main'),
+    'coverage.yaml',
+  )
+})
+
+// Branch names may contain '@', so the split has to take the first one. Getting this
+// backwards yields a file name with half a ref glued to it, and the runs API then quietly
+// matches nothing — which looks exactly like "no baseline yet".
+test('a branch name containing @ does not corrupt the file name', () => {
+  assert.strictEqual(
+    workflowFileFromRef('acme/parcel/.github/workflows/ci.yml@refs/heads/feat/user@host'),
+    'ci.yml',
+  )
+})
+
+test('an absent or unrecognisable ref yields no file name rather than a guess', () => {
+  assert.strictEqual(workflowFileFromRef(undefined), '')
+  assert.strictEqual(workflowFileFromRef(''), '')
+  assert.strictEqual(workflowFileFromRef('acme/parcel/.github/workflows/ci@refs/heads/main'), '')
+  assert.strictEqual(workflowFileFromRef('nonsense'), '')
+})
 
 function withOutputFile(fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gridmap-out-'))

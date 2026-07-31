@@ -48,4 +48,26 @@ const notice = (message) => annotate('notice', message)
 const warning = (message) => annotate('warning', message)
 const error = (message) => annotate('error', message)
 
-module.exports = { setOutput, notice, warning, error, escapeAnnotation }
+/**
+ * The workflow file the current run belongs to. The runner sets `GITHUB_WORKFLOW_REF` to
+ * `owner/repo/.github/workflows/ci.yml@refs/heads/main`, so the file name is derived rather
+ * than configured: the Baseline can only live in this workflow's own runs, because no other
+ * workflow uploads the breakdown artifact. Note that `GITHUB_WORKFLOW` is the workflow's
+ * *display name*, which is not what the runs API accepts.
+ *
+ * Split on the first `@` rather than the last: a branch name may contain one, and a
+ * workflow file name realistically may not.
+ *
+ * @param {string | undefined} ref value of GITHUB_WORKFLOW_REF
+ * @returns {string} '' when the ref is absent or doesn't name a YAML file
+ */
+function workflowFileFromRef(ref) {
+  if (!ref) return ''
+
+  const path = String(ref).split('@')[0]
+  const file = path.slice(path.lastIndexOf('/') + 1)
+
+  return file.endsWith('.yml') || file.endsWith('.yaml') ? file : ''
+}
+
+module.exports = { setOutput, notice, warning, error, escapeAnnotation, workflowFileFromRef }

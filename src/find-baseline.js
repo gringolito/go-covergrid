@@ -7,13 +7,21 @@
 // and an empty run id, because losing the comparison is much better than failing the job.
 
 const { createClient } = require('./github.js')
-const { setOutput, warning } = require('./workflow.js')
+const { setOutput, warning, workflowFileFromRef } = require('./workflow.js')
 
 async function main() {
-  const { GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, WORKFLOW, BASE_BRANCH } = process.env
+  const { GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_WORKFLOW_REF, BASE_BRANCH } = process.env
 
   try {
     if (!GITHUB_TOKEN) throw new Error('no github-token was supplied')
+
+    // Which workflow holds the Baseline is not configurable, and does not need to be: it is
+    // always the workflow this run belongs to. A different workflow's runs would not have
+    // uploaded the breakdown artifact in the first place.
+    const workflow = workflowFileFromRef(GITHUB_WORKFLOW_REF)
+    if (!workflow) {
+      throw new Error(`GITHUB_WORKFLOW_REF is absent or unparseable ("${GITHUB_WORKFLOW_REF ?? ''}")`)
+    }
 
     const api = createClient({
       token: GITHUB_TOKEN,
@@ -21,11 +29,11 @@ async function main() {
       apiUrl: GITHUB_API_URL || 'https://api.github.com',
     })
 
-    const runId = await api.latestSuccessfulRunId({ workflow: WORKFLOW, branch: BASE_BRANCH })
+    const runId = await api.latestSuccessfulRunId({ workflow, branch: BASE_BRANCH })
 
     if (runId === null) {
       warning(
-        `No successful "${WORKFLOW}" run found on ${BASE_BRANCH}; this run has no baseline to compare against.`,
+        `No successful "${workflow}" run found on ${BASE_BRANCH}; this run has no baseline to compare against.`,
       )
       setOutput('run-id', '')
       return

@@ -4,7 +4,7 @@ The action's logic is split into four independently invocable units, each a step
 
 | Unit | Reads | Writes | Network |
 | --- | --- | --- | --- |
-| `src/find-baseline.js` | token, workflow, base branch | `run-id` | GitHub API |
+| `src/find-baseline.js` | token, base branch, `GITHUB_WORKFLOW_REF` | `run-id` | GitHub API |
 | `src/render-gridmap.js` | a Breakdown File | an SVG, the coverage outputs | none |
 | `scripts/publish-image.sh` | an SVG | `url`, `content-type` | Catbox |
 | `src/post-comment.js` | two Breakdown Files, an image URL | `comment-id` | GitHub API |

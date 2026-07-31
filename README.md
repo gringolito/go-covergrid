@@ -71,16 +71,13 @@ jobs:
           config: ./.testcoverage.yml
 ```
 
-Two things in there are easy to get wrong, and both fail quietly rather than loudly.
+Name the file whatever you like — the baseline lookup finds the workflow it is running in on its own.
+One thing in there is easy to get wrong, though, and it fails quietly rather than loudly.
 
 **The `push` trigger is not optional.** The baseline is the breakdown file from the most recent
 successful run of this workflow *on the base branch*, so a workflow that only runs on `pull_request`
 never produces one. Coverage still gates and the grid map still renders — you just never get the
 comparison against `main`, on any PR, forever.
-
-**The filename has to match the `workflow` input**, which defaults to `ci.yml`. Name the file
-`coverage.yml` and the baseline lookup goes hunting for runs of a workflow that doesn't exist. Set
-`workflow: coverage.yml` if you name it something else.
 
 The permissions block is load bearing too, and the action cannot request any of it on your behalf.
 Note that `pull_request` runs triggered from a **fork** get a read-only token no matter what you put
@@ -96,7 +93,6 @@ section. That's expected, not a misconfiguration; the second PR after a merge to
 | `profile` | `cover.out` | The coverage profile from `go test -coverprofile`. Handed straight to the gate; nothing here parses it. |
 | `config` | — | Path to your `.testcoverage.yml`. Without one the gate has no thresholds and always passes. |
 | `github-token` | `${{ github.token }}` | Used for the baseline lookup, the artifact download and the comment. |
-| `workflow` | `ci.yml` | Whose successful base-branch runs hold the baseline artifact. Set this if your workflow file is named something else. |
 | `base-branch` | the repository default branch | Where the baseline comes from. |
 | `breakdown-artifact` | `coverage-breakdown` | Artifact name for the breakdown file. Changing it orphans every existing baseline. |
 | `diff-threshold` | `-101` | Minimum allowed change in total coverage, in percentage points. `-101` disables it. |

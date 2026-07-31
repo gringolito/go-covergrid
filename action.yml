@@ -25,12 +25,6 @@ inputs:
       Needs contents:read, actions:read and pull-requests:write.
     required: true
     default: ${{ github.token }}
-  workflow:
-    description: >-
-      Workflow file name whose successful runs on the base branch hold the baseline
-      breakdown artifact.
-    required: false
-    default: ci.yml
   base-branch:
     description: Branch the baseline is taken from, and the branch coverage is compared against.
     required: false
@@ -105,7 +99,6 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        WORKFLOW: ${{ inputs.workflow }}
         BASE_BRANCH: ${{ inputs.base-branch }}
       run: node "${GITHUB_ACTION_PATH}/src/find-baseline.js"
 
