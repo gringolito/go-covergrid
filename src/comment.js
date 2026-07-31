@@ -199,7 +199,7 @@ function gridMapSection(imageUrl, imageExpiresIn) {
 
   return (
     `${image}\n\n<sub>The picture is hosted anonymously and expires ${imageExpiresIn} after the run ` +
-    'that posted it. Pushing to this branch refreshes it.</sub>'
+    'that posted it.</sub>'
   )
 }
 

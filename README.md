@@ -10,7 +10,8 @@ comment carrying the gate result, the picture, and the change since the base bra
 
 ## Read this before you enable it
 
-The Grid Map is **published to public image hosting on every run, by default.**
+The Grid Map is **published to public image hosting on every pull request run, by default.**
+(A `push` run renders the picture but never uploads it, because it has no comment to put it in.)
 
 GitHub strips inline `<svg>` from a comment body, forbids `style`, and refuses `data:` URIs, and every
 image it does render is refetched through its camo proxy, which cannot reach anything requiring

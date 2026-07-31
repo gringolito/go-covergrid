@@ -15,7 +15,9 @@ action was designed against — that publishes the internal package tree and eac
 URL is unguessable, not secret. This is a deliberate trade-off for an inline picture. Do not "fix" it by
 making the upload authenticated: that breaks camo and the image silently stops rendering.
 
-Publishing is **on by default**, with a `publish-image: false` opt-out. Opt-in was rejected because the
+Publishing is **on by default** on runs that carry a pull request, with a `publish-image: false`
+opt-out. A `push` run renders and uploads nothing: there is no comment to hold the picture, so an
+upload there would disclose the package tree with nothing to show for it. Opt-in was rejected because the
 Grid Map is the entire purpose of the action, and a headline feature that stays dark until you read the
 README is a worse product. Because the default carries the disclosure, two mitigations are not optional:
 a `::notice::` on **every** run naming the published URL, and the disclosure in the README's first

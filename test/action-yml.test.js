@@ -152,6 +152,19 @@ test('the userhash reaches the publish script through the environment, not the c
   assert.ok(!runLine.includes('catbox-userhash'), 'an argument would be echoed in the job log')
 })
 
+// A push to the base branch runs the gate and the renderer, and has no comment to put the
+// picture in. Publishing there would disclose the package tree for nobody to read (ADR-0002),
+// so the upload is gated on the event carrying a pull request.
+test('the grid map is only published on events that carry a pull request', () => {
+  const publish = steps().find((b) => b.includes('id: publish'))
+  assert.ok(publish, 'no step with id: publish')
+
+  const condition = publish.join('\n').slice(publish.join('\n').indexOf('if:'))
+  assert.match(condition, /github\.event_name == 'pull_request'/)
+  assert.match(condition, /github\.event\.issue\.pull_request/, 'issue_comment fires for pull requests')
+  assert.match(condition, /inputs\.publish-image == 'true'/, 'the opt-out still has to work')
+})
+
 test('the gate step tolerates failure so the comment is still posted', () => {
   const gate = steps().find((b) => b.includes('id: gate'))
   assert.ok(gate, 'no step with id: gate')

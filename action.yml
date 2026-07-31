@@ -152,7 +152,9 @@ runs:
 
     - name: Publish the Grid Map
       id: publish
-      if: inputs.publish-image == 'true'
+      if: >-
+        inputs.publish-image == 'true' && (github.event_name == 'pull_request' ||
+        github.event_name == 'pull_request_target' || github.event.issue.pull_request != null)
       shell: bash
       env:
         CATBOX_USERHASH: ${{ inputs.catbox-userhash }}
