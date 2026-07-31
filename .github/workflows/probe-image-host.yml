@@ -6,8 +6,12 @@ name: Probe the image host
 # rendered from a synthetic fixture and already public in this repository, so there is
 # nothing to disclose.
 #
-# Never let a variant that works here quietly become the implementation without also
-# updating scripts/publish-image.sh and ADR-0002.
+# Never let a host that works here quietly become the implementation without also updating
+# scripts/publish-image.sh and ADR-0002. A host has to pass BOTH checks to be a candidate:
+# the upload has to succeed, and the returned URL has to answer with an `image/*`
+# Content-Type, because GitHub's camo proxy refuses everything else. Plenty of hosts serve
+# an uploaded .svg as text/plain deliberately, to stop it executing script in their own
+# origin, and such a host is useless here however well it uploads.
 
 on:
   workflow_dispatch:
@@ -23,51 +27,70 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # `--fail` hides the response body, and the body is the interesting part of a 412.
-      # Every variant runs even when an earlier one fails, so one push answers the question.
-      - name: Upload the example grid map several ways
+      # Every host is tried even after one fails, so a single run answers the question.
+      # `--fail` stays off: the response body is the interesting part of a refusal.
+      - name: Try each candidate host
         run: |
           svg=docs/example-grid-map.svg
-          api=https://catbox.moe/user/api.php
+          # 0x0.st and its clones reject curl's default User-Agent outright.
+          ua='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
+          # $1 label, $2 endpoint, $3.. extra curl args (the form fields differ per host)
           probe() {
-            label="$1"; shift
-            echo "::group::$label"
-            code=$(curl --silent --show-error --max-time 60 \
+            label="$1"; endpoint="$2"; shift 2
+            echo "::group::${label}"
+            code=$(curl --silent --show-error --max-time 90 --user-agent "$ua" \
               --write-out '%{http_code}' --output "$RUNNER_TEMP/body" \
-              --dump-header "$RUNNER_TEMP/headers" \
-              "$@" \
-              --form reqtype=fileupload --form "fileToUpload=@${svg}" \
-              "$api" 2>&1) || code="curl-error"
-            echo "status: $code"
-            echo "body:   $(head -c 400 "$RUNNER_TEMP/body")"
-            grep -iE '^(server|cf-ray|cf-mitigated|content-type):' "$RUNNER_TEMP/headers" || true
+              "$@" "$endpoint" 2>&1) || code="curl-error"
+            body=$(tr -d '\r\n' <"$RUNNER_TEMP/body" | head -c 300)
+            echo "upload status: ${code}"
+            echo "upload body:   ${body}"
+
+            # Pull the first https URL out of the body: some hosts answer with the bare URL,
+            # others with JSON around it.
+            url=$(grep -oE 'https://[^"[:space:]\\]+' <<<"$body" | head -1)
+            if [[ -n "$url" ]]; then
+              ct=$(curl --silent --show-error --location --head --max-time 30 --user-agent "$ua" \
+                --write-out '%{http_code} %{content_type}' --output /dev/null "$url" 2>&1) \
+                || ct="curl-error"
+              echo "url:           ${url}"
+              echo "GET status/type: ${ct}"
+              case "$ct" in
+                2*[[:space:]]image/*) echo "VERDICT: candidate — uploads and serves an image type" ;;
+                *) echo "VERDICT: unusable — camo refuses anything that is not image/*" ;;
+              esac
+            else
+              echo "VERDICT: unusable — no URL in the response"
+            fi
             echo "::endgroup::"
           }
 
-          # 1. Exactly what scripts/publish-image.sh sends today, minus --fail.
-          probe "as shipped"
+          # Retention is quoted from each host's own front page; it decides whether a two-year-old
+          # pull request comment still shows its picture, so it matters as much as the verdict.
+          # Catbox, for the record of the refusal. 412 "Invalid uploader" as of this writing.
+          probe 'catbox.moe (permanent)' https://catbox.moe/user/api.php \
+            --form reqtype=fileupload --form "fileToUpload=@${svg}"
 
-          # 2. curl adds `Expect: 100-continue` to a multipart body over 1KB. A proxy that
-          #    rejects the expectation rather than honouring it answers 412 by definition,
-          #    which makes this the first hypothesis worth eliminating.
-          probe "no Expect header" --header 'Expect:'
+          # Same operator, anonymous by design, but 72h maximum — every historical comment
+          # would rot. Probed only to tell an account block apart from an address-range block.
+          probe 'litterbox.catbox.moe (72h — diagnostic only, never ship this)' \
+            https://litterbox.catbox.moe/resources/internals/api.php \
+            --form reqtype=fileupload --form time=72h --form "fileToUpload=@${svg}"
 
-          # 3. Some hosts refuse curl's default User-Agent outright.
-          probe "browser user-agent" \
-            --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+          # 0x0.st: retention scales down with size, ~1 year for something this small.
+          probe '0x0.st (~1 year for a small file)' https://0x0.st --form "file=@${svg}"
 
-          # 4. Both, in case the two are independent.
-          probe "no Expect + browser user-agent" --header 'Expect:' \
-            --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+          # Clones of 0x0.st with the same API and their own retention rules.
+          probe 'envs.sh (~1 year for a small file)' https://envs.sh --form "file=@${svg}"
+          probe 'x0.at (~1 year for a small file)' https://x0.at --form "file=@${svg}"
 
-      # Distinguishes "this runner's IP is blocked" from "the upload endpoint refused this
-      # request". A plain GET reaching the site while every upload fails means the block is
-      # on the endpoint; both failing means the address range.
-      - name: Can this runner reach the host at all
+          # Short-lived; probed to complete the picture, not as candidates.
+          probe 'uguu.se (3 hours)' 'https://uguu.se/upload?output=text' --form "files[]=@${svg}"
+          probe 'tmpfiles.org (1 hour)' https://tmpfiles.org/api/v1/upload --form "file=@${svg}"
+
+      - name: Summarise
+        if: always()
         run: |
-          echo "::group::GET https://catbox.moe/"
-          curl --silent --show-error --max-time 30 --output /dev/null \
-            --write-out 'status: %{http_code}\nserver: %header{server}\ncf-ray: %header{cf-ray}\n' \
-            https://catbox.moe/ 2>&1 || echo 'curl failed'
-          echo "::endgroup::"
+          echo 'Read the VERDICT line in each group above. A host needs a successful upload AND'
+          echo 'an image/* Content-Type on the returned URL. Retention decides whether old pull'
+          echo 'request comments keep their picture; anything under a year is not a real option.'
