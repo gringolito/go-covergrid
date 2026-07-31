@@ -1,0 +1,73 @@
+name: Probe the image host
+
+# Diagnostic, not a gate. Catbox is a third party reachable only from a runner —
+# catbox.moe does not resolve on the development network (ADR-0002) — so this is the only
+# place its behaviour can be observed. It uploads the committed example grid map, which is
+# rendered from a synthetic fixture and already public in this repository, so there is
+# nothing to disclose.
+#
+# Never let a variant that works here quietly become the implementation without also
+# updating scripts/publish-image.sh and ADR-0002.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['probe/**']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # `--fail` hides the response body, and the body is the interesting part of a 412.
+      # Every variant runs even when an earlier one fails, so one push answers the question.
+      - name: Upload the example grid map several ways
+        run: |
+          svg=docs/example-grid-map.svg
+          api=https://catbox.moe/user/api.php
+
+          probe() {
+            label="$1"; shift
+            echo "::group::$label"
+            code=$(curl --silent --show-error --max-time 60 \
+              --write-out '%{http_code}' --output "$RUNNER_TEMP/body" \
+              --dump-header "$RUNNER_TEMP/headers" \
+              "$@" \
+              --form reqtype=fileupload --form "fileToUpload=@${svg}" \
+              "$api" 2>&1) || code="curl-error"
+            echo "status: $code"
+            echo "body:   $(head -c 400 "$RUNNER_TEMP/body")"
+            grep -iE '^(server|cf-ray|cf-mitigated|content-type):' "$RUNNER_TEMP/headers" || true
+            echo "::endgroup::"
+          }
+
+          # 1. Exactly what scripts/publish-image.sh sends today, minus --fail.
+          probe "as shipped"
+
+          # 2. curl adds `Expect: 100-continue` to a multipart body over 1KB. A proxy that
+          #    rejects the expectation rather than honouring it answers 412 by definition,
+          #    which makes this the first hypothesis worth eliminating.
+          probe "no Expect header" --header 'Expect:'
+
+          # 3. Some hosts refuse curl's default User-Agent outright.
+          probe "browser user-agent" \
+            --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+
+          # 4. Both, in case the two are independent.
+          probe "no Expect + browser user-agent" --header 'Expect:' \
+            --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+
+      # Distinguishes "this runner's IP is blocked" from "the upload endpoint refused this
+      # request". A plain GET reaching the site while every upload fails means the block is
+      # on the endpoint; both failing means the address range.
+      - name: Can this runner reach the host at all
+        run: |
+          echo "::group::GET https://catbox.moe/"
+          curl --silent --show-error --max-time 30 --output /dev/null \
+            --write-out 'status: %{http_code}\nserver: %header{server}\ncf-ray: %header{cf-ray}\n' \
+            https://catbox.moe/ 2>&1 || echo 'curl failed'
+          echo "::endgroup::"
