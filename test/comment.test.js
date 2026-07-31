@@ -34,6 +34,14 @@ test('every comment carries the marker so it can be found and updated', () => {
   assert.ok(renderUnavailableComment().startsWith(MARKER))
 })
 
+// A pull request can collect comments from several tools, so the heading has to say which
+// one this is rather than just "Coverage Report".
+test('the heading names the action that posted the comment', () => {
+  for (const body of [render(), renderUnavailableComment()]) {
+    assert.match(body, /^## .*go-covergrid/m)
+  }
+})
+
 test('bar draws ten cells scaled to the nearest tenth', () => {
   assert.strictEqual(bar(0), '░░░░░░░░░░')
   assert.strictEqual(bar(100), '██████████')

@@ -90,6 +90,38 @@ The Content-Type question below is now moot for this host: nothing gets far enou
 The soft-fail was right, though. The run that found this still posted its comment, with every number
 and no picture, and the warning named the status. Keep that shape for whatever host replaces it.
 
+## What every candidate host actually does
+
+Measured from an `ubuntu-latest` runner by the same probe. A host needs two things: the upload has to
+succeed, and the returned URL has to answer `image/*`, because camo refuses anything else.
+
+| Host | Upload | Serves | Retention |
+| --- | --- | --- | --- |
+| `catbox.moe` | 412 `Invalid uploader` | — | permanent |
+| `litter.catbox.moe` | 200 | `image/svg+xml` | 72 hours |
+| `0x0.st` | 503, uploads disabled | — | — |
+| `envs.sh` | 503, same notice — it mirrors 0x0 | — | — |
+| `x0.at` | 200, returns a URL | 404 `text/html` | — |
+| `uguu.se` | 415 `Filetype not allowed` | — | 3 hours |
+| `tmpfiles.org` | 200 | `text/html` — the URL is a viewer page | 1 hour |
+| `raw.githubusercontent.com` | n/a, a commit | `image/svg+xml` | permanent |
+
+Two things worth extracting from that table, because they outlive every host in it.
+
+**The SVG premise is sound.** Litterbox served the uploaded `.svg` as `image/svg+xml`, and so does
+`raw.githubusercontent.com`. That was the load-bearing unknown this ADR was written around, and the
+answer is yes. What failed was anonymous permanent hosting, not SVG.
+
+**Anonymous file hosts are drying up.** 0x0.st's own 503 body reads *"uploads disabled because it's been
+almost nothing but AI botnet spam for the past few months"*, and Catbox's `Invalid uploader` is the same
+pressure expressed as an address-range block. Treat any replacement that needs no account as temporary
+by default, and expect to have probed it recently rather than once.
+
+The consequence for a **private** repository is worth stating plainly, because it is a floor and not an
+implementation detail: camo cannot authenticate, so an inline picture requires a public host, and every
+public host that still accepts uploads wants credentials. There is no arrangement of this action that
+gives a private repository an inline grid map without a secret somewhere.
+
 ## Development constraint
 
 `catbox.moe` does not resolve on the corporate network — `dig` returns nothing and the proxy times out

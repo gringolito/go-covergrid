@@ -29,7 +29,12 @@ const {
 // posts a second comment beside each and the stale ones stay forever. Safe to change only
 // while nothing is deployed.
 const MARKER = '<!-- go-covergrid:grid-map -->'
-const HEADING = '## Coverage Report'
+
+// Says who posted this. A pull request can carry comments from several tools and "Coverage
+// Report" named none of them; the link also answers "what put this here" without anyone
+// having to go read the workflow. Free to change — unlike MARKER above, no comment is found
+// by its heading.
+const HEADING = '## [go-covergrid](https://github.com/gringolito/go-covergrid) — Coverage Report'
 const BAR_WIDTH = 10
 
 function bar(ratio) {
