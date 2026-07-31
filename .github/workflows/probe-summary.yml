@@ -1,0 +1,59 @@
+name: Probe the job summary
+
+# Can a job summary carry the Grid Map with no host at all? The summary is GitHub-rendered
+# markdown, but it is rendered for a signed-in viewer rather than refetched through camo, so
+# it may not run the comment sanitizer that strips inline <svg> and data: URIs. If it does
+# not, the SVG renders with no upload, no secret and no public URL — which is the whole
+# problem this repository has been stuck on.
+#
+# Look at the run summary in the browser. Nothing here asserts; the answer is visual.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['probe/**']
+
+permissions:
+  contents: read
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Write every embedding a summary might accept
+        run: |
+          svg=docs/example-grid-map.svg
+
+          {
+            echo '## 1. Inline `<svg>`, small'
+            echo
+            echo 'If this shows a red square, inline SVG survives and the problem is solved.'
+            echo
+            echo '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#d73027"/><text x="30" y="35" fill="#fff" text-anchor="middle" font-size="12">ok</text></svg>'
+            echo
+            echo '## 2. Inline `<svg>`, the real grid map'
+            echo
+            # The document already carries its own xmlns and no external references, so it can
+            # be pasted straight in.
+            cat "$svg"
+            echo
+            echo
+            echo '## 3. `<img>` with a data: URI'
+            echo
+            printf '<img alt="grid map" src="data:image/svg+xml;base64,%s">\n' "$(base64 -w0 "$svg")"
+            echo
+            echo '## 4. `<img>` at a raw.githubusercontent URL'
+            echo
+            echo 'The control. Known to serve image/svg+xml, so this one should render — it says'
+            echo 'whether images work here at all, independent of how they are embedded.'
+            echo
+            echo "![control](https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/docs/example-grid-map.svg)"
+            echo
+            echo '## 5. Markdown image with a data: URI'
+            echo
+            printf '![md-data](data:image/svg+xml;base64,%s)\n' "$(base64 -w0 "$svg")"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          echo "summary written: $(wc -c <"$GITHUB_STEP_SUMMARY") bytes"
