@@ -2,9 +2,8 @@
 
 // Entry point: build the comment body and upsert it on the pull request.
 //
-// Kept apart from rendering and from uploading. The Grid Map URL arrives as an already
-// published `IMAGE_URL`, so this script neither renders nor uploads anything, and the
-// renderer stays exercisable offline (ADR-0002).
+// It neither renders nor uploads: the Grid Map arrives as an already published
+// `IMAGE_URL` (ADR-0005).
 
 const fs = require('node:fs')
 
@@ -31,6 +30,7 @@ async function main() {
     CURRENT_BREAKDOWN_PATH,
     BASE_BREAKDOWN_PATH,
     IMAGE_URL,
+    IMAGE_EXPIRES,
   } = process.env
 
   const prNumber = prNumberFrom(readContext())
@@ -62,6 +62,7 @@ async function main() {
       base: base || [],
       prNumber,
       imageUrl: IMAGE_URL || null,
+      imageExpiresIn: IMAGE_EXPIRES || null,
     })
   }
 
@@ -77,10 +78,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  // "Resource not accessible by integration" is what GitHub says when the job's token has no
-  // write access to pull requests, and it is the single most likely way this action fails on a
-  // first install: the default for a repository is a read-only token, so the permission has to
-  // be granted explicitly and nothing else in the run hints at that.
+  // A 403 here is GitHub's "Resource not accessible by integration", and it is the likeliest
+  // way a first install fails, so it gets the fix rather than a stack trace.
   if (err.status === 403) {
     error(
       'Cannot post the coverage comment: the job token is not allowed to write pull requests. ' +

@@ -1,130 +1,91 @@
 # Publish the Grid Map image to public hosting, accepting the disclosure
 
-GitHub's comment sanitizer strips inline `<svg>` elements, forbids `<style>` and `style=`, and limits
-`img src` to `http`/`https`/relative, so no `data:` URI either. The picture therefore has to be an
-`<img src>` pointing at an external URL. Every inline image is refetched by GitHub's camo proxy, which
-the docs state cannot reach *"a server that requires authentication"*. An inline Grid Map consequently
-**requires an anonymously readable public URL**. No configuration of GitHub avoids this.
+GitHub's comment sanitizer strips inline `<svg>`, forbids `<style>` and `style=`, and allowlists URI
+**schemes** on `img src` — so no `data:` URI either, whatever the payload. Every image that does render
+is refetched by GitHub's camo proxy, which the docs state cannot reach *"a server that requires
+authentication"*. An inline Grid Map therefore **requires an anonymously readable public URL**. No
+configuration of GitHub avoids this, and job summaries behave identically to comments.
 
-We are publishing to public hosting anyway, with the disclosure understood and accepted.
+We publish to public hosting anyway, with the disclosure understood and accepted.
 
 ## Consequences
 
 **The Grid Map is world-readable to anyone holding the URL.** For a private repository — the case this
-action was designed against — that publishes the internal package tree (`internal/authflow`,
-`internal/basket`, `internal/tariff/customs`) and each package's coverage. The URL is unguessable, not
-secret; it appears in the PR comment and in camo's cache. This is a deliberate trade-off for an inline
-picture, not an oversight. Do not "fix" it by making the upload authenticated, which breaks camo and
-makes the image silently stop rendering.
+action was designed against — that publishes the internal package tree and each package's coverage. The
+URL is unguessable, not secret. This is a deliberate trade-off for an inline picture. Do not "fix" it by
+making the upload authenticated: that breaks camo and the image silently stops rendering.
 
-Two constraints follow for choosing a host, both non-negotiable:
+Publishing is **on by default**, with a `publish-image: false` opt-out. Opt-in was rejected because the
+Grid Map is the entire purpose of the action, and a headline feature that stays dark until you read the
+README is a worse product. Because the default carries the disclosure, two mitigations are not optional:
+a `::notice::` on **every** run naming the published URL, and the disclosure in the README's first
+section rather than an inputs table halfway down.
 
-- It must serve an **`image/*` Content-Type**. Camo rejects every other type, so any host returning
-  `application/octet-stream` (most S3-backed and download-oriented services) cannot work. This is the
-  whole reason SVGs in GitHub *release assets* don't embed, and it is a Content-Type problem rather than
-  anything SVG-specific: `img.shields.io` serves `image/svg+xml`, is camo-proxied, and renders in
-  READMEs, issues and comments everywhere. Camo proxies SVG fine. Only inline `<svg>` markup in a
-  comment body is stripped, which is a separate mechanism.
-- The URL must be **permanent**, because PR comments outlive retention windows. A host that expires
-  files turns every historical comment into a broken image.
+## Two rules any host and any document must satisfy
 
-Publishing is **on by default**, with a `publish-image: false` opt-out. Opt-in was considered and
-rejected: nobody should publish their package tree by accident, but the Grid Map is the entire purpose
-of the action, and a headline feature that stays dark until you read the README is a worse product.
+**The host must serve `image/*`.** Camo rejects every other Content-Type, so a host answering
+`application/octet-stream` cannot work — this is why SVGs in GitHub *release assets* don't embed, and it
+is a Content-Type problem rather than anything SVG-specific. `img.shields.io` serves `image/svg+xml`
+through camo and renders everywhere. `scripts/publish-image.sh` therefore issues a `HEAD` against the
+returned URL and checks the type before handing it to the comment, so a wrong type degrades to a comment
+with no image rather than a comment with a broken one. Keep that guard: the hosts measured correct today
+are someone else's servers and nothing on our side would notice them changing.
 
-Because the default carries the disclosure, two mitigations are not optional:
+**The document uses presentation attributes only.** No `<style>`, no `<script>`, no `xlink:href`, no
+external references. It renders inside an `<img>`, where scripts do not run and remote references do not
+load, so a document needing any of those fails silently rather than loudly.
 
-- Emit a `::notice::` on **every** run naming the published URL, so the behaviour is visible in the log
-  of anyone who never read the README.
-- State the disclosure in the README's first section, not in an inputs table halfway down.
+## The host: Litterbox, at 72 hours
 
-## The chosen host: Catbox
+Anonymous `POST` to `https://litterbox.catbox.moe/resources/internals/api.php` with
+`reqtype=fileupload` and `time=72h` (the longest offered), measured serving `image/svg+xml` from a
+runner.
 
-Anonymous `POST` to `https://catbox.moe/user/api.php` with `reqtype=fileupload`, which needs no
-account and no secret — the reason it wins over Cloudinary and ImgBB, whose keys every adopter of
-this action would otherwise have to provision.
+Litterbox is not the best host. It is the only remaining one that asks nothing of an adopter, and asking
+nothing is the premise this action is built on. Permanent Catbox answers `412 Invalid uploader` to an
+anonymous upload from an Actions address range, and the anonymous permanent hosts that might have
+replaced it have closed to automation. Expect any replacement that needs no account to be temporary, and
+to have been probed recently rather than once.
 
-Do **not** use `litter.catbox.moe`; that subdomain expires files after 72 hours.
+**Seventy-two hours is the price, paid in one place.** An open pull request re-uploads on every push, so
+an active branch always shows a current picture. The archive is what breaks: an old comment gets a dead
+image link. Two things keep that from reading as a defect — the comment carries every number as plain
+text, and it captions the image with its own expiry.
 
-Unverified, and worth revisiting: Catbox's terms could not be read from the development network, so
-whether they sanction automated uploads is unknown. Catbox is also volunteer-run, which makes
-long-term availability a real risk for comments that outlive it.
+## The optional upgrade: `catbox-userhash`
 
-## The document the renderer emits
+A Catbox userhash switches to `https://catbox.moe/user/api.php`, drops `time`, and adds `userhash`. The
+`expires` output comes back empty, which suppresses the comment's caption. Absent or empty behaves
+exactly like no input at all, asserted in `test/publish-image.test.js` rather than left to inspection.
 
-Presentation attributes only. No `<style>`, no `<script>`, no `xlink:href`, no external references of
-any kind. It renders inside an `<img>`, where scripts do not run and remote references do not load, so
-a document needing any of those would fail silently rather than loudly.
+Three properties this deliberately has:
 
-## The one thing CI must confirm
+- **It is a credential.** Read from `$CATBOX_USERHASH`, never an argument, because a composite action's
+  `run:` line is echoed in the log. Never printed, including on failure paths.
+- **It does not buy privacy.** Camo cannot authenticate, so the URL is world-readable either way. A
+  userhash changes retention and nothing else. There is no way to make the picture private.
+- **It stays genuinely optional.** The zero-configuration path is the premise the hosting decision was
+  made on. A userhash that became a soft requirement — a warning nagging for one, a degraded default —
+  would give away what Litterbox was chosen to protect.
 
-**Whether Catbox serves a `.svg` upload as `image/svg+xml` or as `application/octet-stream` is
-unverified and cannot be tested from the development network.** `catbox.moe` does not resolve there, so
-nothing has been uploaded. If it comes back as `octet-stream`, camo refuses it and the image silently
-fails to render in every comment.
+Unmeasured: whether Catbox's `412` refuses anonymous uploads or blocks the address range outright. If
+the latter, this path soft-fails every run and the answer is a different permanent host, not a different
+hash.
 
-`scripts/publish-image.sh` therefore issues a `HEAD` against the returned URL and checks the
-Content-Type is `image/*` before handing the URL to the comment. A wrong type degrades to a comment
-with no image, which is a legible outcome, rather than a comment with a broken one. That guard is load
-bearing precisely because the assumption behind it is untested.
+## Do not try to embed the bytes
 
-## Catbox refuses anonymous uploads from GitHub Actions
+Carrying the picture inside the comment has been measured and does not work at any format. The
+sanitizer allowlists schemes, so `data:` is rejected before anything inspects the payload — PNG buys
+nothing that SVG failed at. Verify in one command, no CI run needed:
 
-Observed, not theorised. `.github/workflows/probe-image-host.yml` uploaded the example grid map from
-an `ubuntu-latest` runner and Catbox answered:
-
+```bash
+gh api --method POST /markdown -f mode=gfm -f context=OWNER/REPO \
+  -f text='![x](data:image/png;base64,iVBORw0KGgo...)'
 ```
-status: 412   body: Invalid uploader   server: nginx
-```
 
-Four request shapes were tried — as shipped, without curl's `Expect: 100-continue`, with a browser
-User-Agent, and both — and every one returned the same thing. A plain `GET https://catbox.moe/` from
-the same runner returned 200, so the host is reachable and there is no Cloudflare challenge in the way;
-`Invalid uploader` is Catbox's own refusal of an anonymous upload from that address range.
+The `<img>` survives with its `src` deleted outright. Behind that sit a 65,536-character comment body
+limit and a rasterizer dependency, so a future workaround at the scheme level still has two walls left.
 
-So the property that made Catbox win — anonymous, no account, no secret — is the property it does not
-actually offer here. A `userhash` would work but requires an account and a secret in every consuming
-repository, which is a different decision from this one and would have to be made on its own terms.
-The Content-Type question below is now moot for this host: nothing gets far enough to answer it.
-
-The soft-fail was right, though. The run that found this still posted its comment, with every number
-and no picture, and the warning named the status. Keep that shape for whatever host replaces it.
-
-## What every candidate host actually does
-
-Measured from an `ubuntu-latest` runner by the same probe. A host needs two things: the upload has to
-succeed, and the returned URL has to answer `image/*`, because camo refuses anything else.
-
-| Host | Upload | Serves | Retention |
-| --- | --- | --- | --- |
-| `catbox.moe` | 412 `Invalid uploader` | — | permanent |
-| `litter.catbox.moe` | 200 | `image/svg+xml` | 72 hours |
-| `0x0.st` | 503, uploads disabled | — | — |
-| `envs.sh` | 503, same notice — it mirrors 0x0 | — | — |
-| `x0.at` | 200, returns a URL | 404 `text/html` | — |
-| `uguu.se` | 415 `Filetype not allowed` | — | 3 hours |
-| `tmpfiles.org` | 200 | `text/html` — the URL is a viewer page | 1 hour |
-| `raw.githubusercontent.com` | n/a, a commit | `image/svg+xml` | permanent |
-
-Two things worth extracting from that table, because they outlive every host in it.
-
-**The SVG premise is sound.** Litterbox served the uploaded `.svg` as `image/svg+xml`, and so does
-`raw.githubusercontent.com`. That was the load-bearing unknown this ADR was written around, and the
-answer is yes. What failed was anonymous permanent hosting, not SVG.
-
-**Anonymous file hosts are drying up.** 0x0.st's own 503 body reads *"uploads disabled because it's been
-almost nothing but AI botnet spam for the past few months"*, and Catbox's `Invalid uploader` is the same
-pressure expressed as an address-range block. Treat any replacement that needs no account as temporary
-by default, and expect to have probed it recently rather than once.
-
-The consequence for a **private** repository is worth stating plainly, because it is a floor and not an
-implementation detail: camo cannot authenticate, so an inline picture requires a public host, and every
-public host that still accepts uploads wants credentials. There is no arrangement of this action that
-gives a private repository an inline grid map without a secret somewhere.
-
-## Development constraint
-
-`catbox.moe` does not resolve on the corporate network — `dig` returns nothing and the proxy times out
-on the apex domain, though `files.catbox.moe` resolves. The upload path therefore cannot be exercised
-locally, only in CI. Keep rendering entirely separable from uploading, so the renderer stays testable
-offline by writing a file to disk.
+Two hosts not worth re-evaluating: **ImgBB** rejects SVG by design (Chevereto, because SVG is XML that
+can carry script), and **FreeSVG.org** has a read-only API and CC0 licensing that would file the package
+tree in a searchable public-domain catalogue.

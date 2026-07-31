@@ -6,10 +6,10 @@ The action's logic is split into four independently invocable units, each a step
 | --- | --- | --- | --- |
 | `src/find-baseline.js` | token, base branch, `GITHUB_WORKFLOW_REF` | `run-id` | GitHub API |
 | `src/render-gridmap.js` | a Breakdown File | an SVG, the coverage outputs | none |
-| `scripts/publish-image.sh` | an SVG | `url`, `content-type` | Catbox |
+| `scripts/publish-image.sh` | an SVG | `url`, `expires`, `content-type` | Litterbox |
 | `src/post-comment.js` | two Breakdown Files, an image URL | `comment-id` | GitHub API |
 
-The split is forced by [ADR-0002](./0002-public-image-hosting.md): `catbox.moe` does not resolve on the
+The split is forced by [ADR-0002](./0002-public-image-hosting.md): the catbox.moe domains do not resolve on the
 development network, so nothing that renders may also upload, or the renderer becomes untestable
 offline. `render-gridmap.js` therefore takes a file path and produces a file, and the published URL
 reaches the comment as a plain `IMAGE_URL` environment variable.
@@ -36,19 +36,15 @@ skipping the upload on failure would break the next run's comparison as well as 
 `continue-on-error` on a composite action's steps was verified against the metadata-syntax
 documentation before being relied on; it is listed among the supported `runs.steps[*]` keys.
 
-## What is not verified
+## What has not run in CI
 
-One path in the table above still has not executed, and one has now failed:
+The gate, the renderer and the comment have all executed against a real repository. Two paths have not:
 
-- **The Catbox upload is broken.** A real run got `412 Invalid uploader`: Catbox refuses anonymous
-  uploads from GitHub Actions address ranges, so `publish-image.sh` cannot succeed as written and the
-  host has to be replaced. ADR-0002 records the evidence. The soft-fail behaved correctly — the comment
-  was posted without a picture — so the split in the table above is what kept a dead third party from
-  failing the job.
-- **The Coverage Gate step now works.** A real run drove go-test-coverage against a consumer's
-  `.testcoverage.yml`, wrote a breakdown file, and the renderer read it: 13 packages, 717 statements,
-  82.7% covered. The `-coverpkg` handling ADR-0001 describes therefore holds outside the fixtures. The
-  fixtures' own numbers (989 statements at 76.8%) are still fixture numbers, asserted in the tests, and
-  the two are unrelated.
-- **Cross-run artifact download** is still unexercised, because the run that would have exercised it
-  had no baseline to download.
+- **`publish-image.sh` itself.** Litterbox was measured uploading and serving `image/svg+xml` from a
+  runner, but by a probe using its own inline curl. The script's first real exercise is still ahead, and
+  the userhash branch has never run at all.
+- **Cross-run artifact download**, because the run that would have exercised it had no baseline yet.
+
+A failure in either degrades rather than breaking the job, which is the split in the table above earning
+its keep — but degrading quietly is exactly how a path stays unverified, so neither should be assumed
+working on the strength of a green run.

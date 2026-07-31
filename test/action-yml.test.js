@@ -3,8 +3,7 @@
 // Guards the composite-action constraints that only bite at run time on a real runner:
 // a missing `shell:`, a step id that no longer exists, a path that ships nowhere, a
 // `post:` hook composite actions do not have. No YAML parser is available (zero runtime
-// dependencies, ADR-0003), so this scans the file's structure by indentation — crude, but
-// it catches every mistake that has actually cost a release.
+// dependencies, ADR-0003), so this scans the structure by indentation. Crude, and enough.
 
 const test = require('node:test')
 const assert = require('node:assert')
@@ -121,9 +120,36 @@ test('every declared output is wired to a step output', () => {
   for (const value of values) assert.match(value, /\$\{\{ steps\./)
 })
 
+// Slices one input's block, ending at the next key at the same indent, so a longer
+// description cannot silently push the `default:` out of a fixed-size window.
+function inputBlock(name) {
+  const start = TEXT.indexOf(`  ${name}:`)
+  assert.notStrictEqual(start, -1, `no input named ${name}`)
+  const rest = TEXT.slice(start + `  ${name}:`.length)
+  const next = rest.search(/^ {2}[a-z][a-z0-9-]*:$/m)
+  return next === -1 ? rest : rest.slice(0, next)
+}
+
 test('publishing the grid map is on by default, with an opt-out', () => {
-  const block = TEXT.slice(TEXT.indexOf('  publish-image:'))
-  assert.match(block.slice(0, 600), /default: 'true'/)
+  assert.match(inputBlock('publish-image'), /default: 'true'/)
+})
+
+// The empty default is load bearing, not tidy: it is what makes Litterbox the behaviour for
+// anyone who configures nothing, which is the premise ADR-0002 rests on.
+test('the catbox userhash is optional and defaults to nothing', () => {
+  const block = inputBlock('catbox-userhash')
+  assert.match(block, /required: false/)
+  assert.match(block, /default: ''/)
+})
+
+test('the userhash reaches the publish script through the environment, not the command line', () => {
+  const publish = steps().find((b) => b.includes('id: publish'))
+  assert.ok(publish, 'no step with id: publish')
+  assert.match(publish.join('\n'), /CATBOX_USERHASH: \$\{\{ inputs\.catbox-userhash \}\}/)
+
+  const runLine = publish.find((line) => line.startsWith('run:'))
+  assert.ok(runLine, 'the publish step runs nothing')
+  assert.ok(!runLine.includes('catbox-userhash'), 'an argument would be echoed in the job log')
 })
 
 test('the gate step tolerates failure so the comment is still posted', () => {

@@ -3,16 +3,13 @@
 // Renders the pull request comment body. Pure string building — no GitHub API calls, no
 // filesystem, no network — so the whole comment can be diffed in tests.
 //
-// Ported from a proven coverage-comment script that predates this action. Two
-// deliberate changes: the "Lines" row is labelled Stmts, because the go toolchain counts
-// Statements and CONTEXT.md bans the word line; and the base branch name is a parameter
-// rather than the literal "main".
+// Counts are Statements, never lines: that is what the go toolchain measures, and
+// CONTEXT.md bans the word.
 //
-// The Gate's own inline annotations already report absolute-threshold violations on the
-// Files changed tab, so this does NOT re-derive go-test-coverage's three-way
-// file/package/total pass-fail breakdown. The one failure mode with no inline-annotation
-// equivalent is the diff-vs-baseline threshold, because there is no line to annotate, so
-// that case is named explicitly with numbers.
+// The Gate's inline annotations already report absolute-threshold violations on the Files
+// changed tab, so this does not re-derive its three-way file/package/total verdict. The one
+// failure with no annotation equivalent is the diff-vs-baseline threshold — there is no line
+// to annotate — so that case is named explicitly, with numbers.
 
 const {
   aggregateByPackage,
@@ -24,16 +21,7 @@ const {
   round2,
 } = require('./breakdown.js')
 
-// How an existing comment is recognised and edited in place. Changing this string orphans
-// every comment already posted with the old one: the next run will not find them, so it
-// posts a second comment beside each and the stale ones stay forever. Safe to change only
-// while nothing is deployed.
 const MARKER = '<!-- go-covergrid:grid-map -->'
-
-// Says who posted this. A pull request can carry comments from several tools and "Coverage
-// Report" named none of them; the link also answers "what put this here" without anyone
-// having to go read the workflow. Free to change — unlike MARKER above, no comment is found
-// by its heading.
 const HEADING = '## [go-covergrid](https://github.com/gringolito/go-covergrid) — Coverage Report'
 const BAR_WIDTH = 10
 
@@ -60,7 +48,7 @@ function padRight(value, width) {
   return s.length >= width ? s : s + ' '.repeat(width - s.length)
 }
 
-function formatRow(entry, baseBranch) {
+function formatRow(entry) {
   const ratio = coverageRatio(entry.current.total, entry.current.covered)
   let emoji
   let delta
@@ -85,7 +73,7 @@ function renderTableRows(entries, baseBranch, hasBaseline) {
   return [
     `| | Package/File | Coverage | ${hasBaseline ? `Δ vs ${baseBranch}` : 'Δ'} |`,
     '| --- | --- | --- | --- |',
-    ...sorted.map((e) => formatRow(e, baseBranch)),
+    ...sorted.map(formatRow),
   ]
 }
 
@@ -98,9 +86,9 @@ function summaryTotals(list) {
  * Codecov-style summary block. The caller fences it as ```diff so GitHub colours rows
  * prefixed `+ ` and `- `.
  *
- * No Partials row: a Breakdown File carries only per-file Statement totals, with no notion
- * of a partially covered line or branch, and `go tool cover` does not track that either.
- * Faking it would mean parsing a Coverage Profile — the second data path ADR-0001 forbids.
+ * No Partials row: a Breakdown File carries per-file Statement totals and nothing about
+ * partial lines or branches, which `go tool cover` does not track either. Faking one would
+ * mean parsing a Coverage Profile, the second data path ADR-0001 forbids.
  */
 function renderDiffSummary({ current, base, prNumber, baseBranch }) {
   const cur = summaryTotals(current)
@@ -201,9 +189,18 @@ function gateStatusLine({ outcome, diffThreshold, hasBaseline, totalDiff, baseBr
  * The Grid Map, or an explanation of its absence. Publishing is on by default, so a
  * missing image is worth a sentence rather than a silent gap (ADR-0002).
  */
-function gridMapSection(imageUrl) {
-  if (imageUrl) return `![Coverage Grid Map](${imageUrl})`
-  return '_Grid map not published for this run (`publish-image` is off, or the upload failed — check the job log)._'
+function gridMapSection(imageUrl, imageExpiresIn) {
+  if (!imageUrl) {
+    return '_Grid map not published for this run (`publish-image` is off, or the upload failed — check the job log)._'
+  }
+
+  const image = `![Coverage Grid Map](${imageUrl})`
+  if (!imageExpiresIn) return image
+
+  return (
+    `${image}\n\n<sub>The picture is hosted anonymously and expires ${imageExpiresIn} after the run ` +
+    'that posted it. Pushing to this branch refreshes it.</sub>'
+  )
 }
 
 /**
@@ -216,6 +213,7 @@ function gridMapSection(imageUrl) {
  * @param {import('./breakdown.js').Stat[]} args.base
  * @param {number | undefined} args.prNumber
  * @param {string | null} args.imageUrl published Grid Map URL, or null
+ * @param {string | null} [args.imageExpiresIn] how long the host keeps it, e.g. "72h"
  * @returns {string} markdown
  */
 function renderComment({
@@ -227,6 +225,7 @@ function renderComment({
   base,
   prNumber,
   imageUrl,
+  imageExpiresIn,
 }) {
   const currentPkgs = aggregateByPackage(current)
   const basePkgs = aggregateByPackage(base)
@@ -246,7 +245,7 @@ function renderComment({
     `**Total coverage:** ${bar(totalPct)} ${round1(totalPct).toFixed(1)}%` +
       (totalDiff === null ? '' : ` (${formatSignedPct(totalDiff, 2)} vs ${baseBranch})`),
     '',
-    gridMapSection(imageUrl),
+    gridMapSection(imageUrl, imageExpiresIn),
     '',
   ]
 

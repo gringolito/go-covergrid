@@ -43,11 +43,16 @@ inputs:
     default: '-101'
   publish-image:
     description: >-
-      Publish the Grid Map to public image hosting so GitHub can render it inline. ON by
-      default, and the URL is world-readable by anyone who has it — read the disclosure in
-      docs/adr/0002-public-image-hosting.md before leaving this on for a private repository.
+      Publish the Grid Map to public image hosting so GitHub can render it inline. The host is
+      Litterbox, which deletes the image after 72 hours; set catbox-userhash to keep them.
     required: false
     default: 'true'
+  catbox-userhash:
+    description: >-
+      Optional. A Catbox account's userhash, which switches publishing from Litterbox to
+      Catbox so the images never expire.
+    required: false
+    default: ''
   fail-on-gate:
     description: Fail the job when the coverage gate fails. The comment is posted either way.
     required: false
@@ -149,6 +154,8 @@ runs:
       id: publish
       if: inputs.publish-image == 'true'
       shell: bash
+      env:
+        CATBOX_USERHASH: ${{ inputs.catbox-userhash }}
       run: bash "${GITHUB_ACTION_PATH}/scripts/publish-image.sh" "${{ steps.paths.outputs.grid-map }}"
 
     - name: Post the pull request comment
@@ -162,6 +169,7 @@ runs:
         CURRENT_BREAKDOWN_PATH: ${{ steps.paths.outputs.breakdown }}
         BASE_BREAKDOWN_PATH: ${{ steps.paths.outputs.baseline-breakdown }}
         IMAGE_URL: ${{ steps.publish.outputs.url }}
+        IMAGE_EXPIRES: ${{ steps.publish.outputs.expires }}
       run: node "${GITHUB_ACTION_PATH}/src/post-comment.js"
 
     - name: Fail on a failed gate

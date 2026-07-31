@@ -19,10 +19,27 @@ configuration of GitHub that avoids this.
 
 So for a private repository, publishing discloses your package tree and each package's coverage to
 anyone holding the URL. The URL is unguessable, not secret. It appears in the comment and in camo's
-cache, and it does not expire.
+cache.
 
-If you don't want it, set `publish-image: false`; the comment still carries every number, minus the
-picture.
+If you don't want any of it, set `publish-image: false`; the comment still carries every number, minus
+the picture.
+
+## Your grid maps expire after 72 hours
+
+By default the picture is uploaded to [Litterbox](https://litterbox.catbox.moe), which **deletes it
+after 72 hours.**
+
+### Keeping them: `catbox-userhash`
+
+If you want the pictures to stick around, create a [Catbox](https://catbox.moe) account, copy the
+userhash from your account settings, and pass it in. Publishing then goes to Catbox instead of
+Litterbox and nothing expires.
+
+```yaml
+- uses: gringolito/go-covergrid@v1
+  with:
+    catbox-userhash: ${{ secrets.CATBOX_USERHASH }}
+```
 
 ## Isn't this go-cover-treemap?
 
@@ -97,6 +114,7 @@ section. That's expected, not a misconfiguration; the second PR after a merge to
 | `breakdown-artifact` | `coverage-breakdown` | Artifact name for the breakdown file. Changing it orphans every existing baseline. |
 | `diff-threshold` | `-101` | Minimum allowed change in total coverage, in percentage points. `-101` disables it. |
 | `publish-image` | `true` | Publish the Grid Map. Read the disclosure above. |
+| `catbox-userhash` | — | Optional. A Catbox userhash, so the images never expire. Pass it from a secret. |
 | `fail-on-gate` | `true` | Fail the job when the gate fails. The comment is posted either way. |
 
 ### Outputs

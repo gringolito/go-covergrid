@@ -24,7 +24,7 @@ function render(overrides = {}) {
     current,
     base,
     prNumber: 31,
-    imageUrl: 'https://files.catbox.moe/abc123.svg',
+    imageUrl: 'https://litter.catbox.moe/abc123.svg',
     ...overrides,
   })
 }
@@ -103,8 +103,8 @@ test('the diff summary block is fenced as a diff so GitHub colours the rows', ()
   assert.match(fence, /^- Misses\s+70\s+100\s+\+30/m)
 })
 
-// CONTEXT.md bans "line": the go toolchain counts Statements, and the Codecov-style block
-// this was ported from labelled the row "Lines", which would report the wrong unit.
+// The go toolchain counts Statements, and CONTEXT.md bans "line" for that reason. Codecov's
+// own version of this block says "Lines", which would report the wrong unit here.
 test('the diff summary counts statements, not lines', () => {
   const fence = render().split('```')[1]
   assert.match(fence, /^ {2}Stmts\s+200\s+250\s+\+50/m)
@@ -112,7 +112,21 @@ test('the diff summary counts statements, not lines', () => {
 })
 
 test('the grid map image is embedded when a published URL is available', () => {
-  assert.match(render(), /!\[Coverage Grid Map\]\(https:\/\/files\.catbox\.moe\/abc123\.svg\)/)
+  assert.match(render(), /!\[Coverage Grid Map\]\(https:\/\/litter\.catbox\.moe\/abc123\.svg\)/)
+})
+
+// The default host deletes the file after 72 hours, so an old comment shows a broken image.
+// The caption is what stops that reading as a bug in this action.
+test('an expiring image is captioned with how long it lasts', () => {
+  const body = render({ imageExpiresIn: '72h' })
+  assert.match(body, /expires 72h after the run/)
+  assert.ok(body.indexOf('![Coverage Grid Map]') < body.indexOf('expires 72h'), 'caption follows the image')
+})
+
+test('no caption is added when the host does not expire the image', () => {
+  const body = render({ imageExpiresIn: null })
+  assert.match(body, /!\[Coverage Grid Map\]/)
+  assert.ok(!body.includes('expires'))
 })
 
 test('with no published URL the comment says where the grid map went', () => {
