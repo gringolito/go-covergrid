@@ -38,15 +38,17 @@ documentation before being relied on; it is listed among the supported `runs.ste
 
 ## What is not verified
 
-Two paths in the table above have never executed:
+One path in the table above still has not executed, and one has now failed:
 
-- **The Catbox upload.** `catbox.moe` does not resolve here, and no upload was attempted, so neither
-  the shape of the response body nor — the one that actually matters — whether a `.svg` upload comes
-  back with an `image/svg+xml` Content-Type has been observed. `publish-image.sh` verifies both and
-  degrades to a comment with no image when either is wrong, which is the right behaviour whether or not
-  the assumptions hold. See ADR-0002; this is the single thing the first CI run has to confirm.
-- **The Coverage Gate step.** go-test-coverage is not installed locally and `.testcoverage.yml` does
-  not exist in any consumer yet, so the breakdown files everything reads were generated from
-  `cover.out` by a throwaway script that collapses duplicate blocks the way ADR-0001 describes. If a
-  real run's breakdown total disagrees with 989 statements at 76.8%, one of the two `-coverpkg`
-  handlings is wrong and it must be understood, not papered over.
+- **The Catbox upload is broken.** A real run got `412 Invalid uploader`: Catbox refuses anonymous
+  uploads from GitHub Actions address ranges, so `publish-image.sh` cannot succeed as written and the
+  host has to be replaced. ADR-0002 records the evidence. The soft-fail behaved correctly — the comment
+  was posted without a picture — so the split in the table above is what kept a dead third party from
+  failing the job.
+- **The Coverage Gate step now works.** A real run drove go-test-coverage against a consumer's
+  `.testcoverage.yml`, wrote a breakdown file, and the renderer read it: 13 packages, 717 statements,
+  82.7% covered. The `-coverpkg` handling ADR-0001 describes therefore holds outside the fixtures. The
+  fixtures' own numbers (989 statements at 76.8%) are still fixture numbers, asserted in the tests, and
+  the two are unrelated.
+- **Cross-run artifact download** is still unexercised, because the run that would have exercised it
+  had no baseline to download.

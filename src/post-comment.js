@@ -12,7 +12,7 @@ const { parseBreakdown } = require('./breakdown.js')
 const { MARKER, renderComment, renderUnavailableComment } = require('./comment.js')
 const { createClient } = require('./github.js')
 const { prNumberFrom, readContext } = require('./pr-context.js')
-const { setOutput, notice, warning } = require('./workflow.js')
+const { setOutput, notice, warning, error } = require('./workflow.js')
 
 function readIfPresent(path) {
   if (!path || !fs.existsSync(path)) return null
@@ -77,6 +77,25 @@ async function main() {
 }
 
 main().catch((err) => {
+  // "Resource not accessible by integration" is what GitHub says when the job's token has no
+  // write access to pull requests, and it is the single most likely way this action fails on a
+  // first install: the default for a repository is a read-only token, so the permission has to
+  // be granted explicitly and nothing else in the run hints at that.
+  if (err.status === 403) {
+    error(
+      'Cannot post the coverage comment: the job token is not allowed to write pull requests. ' +
+        'Add this to the job (or the workflow) in your own repository:\n' +
+        '    permissions:\n' +
+        '      contents: read\n' +
+        '      pull-requests: write\n' +
+        '      actions: read\n' +
+        'A repository whose default workflow permissions are read-only grants nothing without it, ' +
+        'and `actions: read` is separately needed to find the baseline run. Note that a pull request ' +
+        'from a fork gets a read-only token regardless, and no permissions block changes that.',
+    )
+    process.exit(1)
+  }
+
   process.stderr.write(`${err.stack}\n`)
   process.exit(1)
 })

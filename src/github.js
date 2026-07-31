@@ -39,7 +39,12 @@ function createClient({ token, repository, apiUrl = 'https://api.github.com', fe
     const response = await fetchImpl(url, init)
     const text = await response.text()
     if (!response.ok) {
-      throw new Error(`GitHub API ${method} ${url} failed with ${response.status}: ${text.slice(0, 500)}`)
+      const err = new Error(`GitHub API ${method} ${url} failed with ${response.status}: ${text.slice(0, 500)}`)
+      // Callers distinguish "the token may not do this" from every other failure, because a
+      // 403 here is almost always a missing `permissions:` key and deserves a better message
+      // than a stack trace.
+      err.status = response.status
+      throw err
     }
 
     return { data: text === '' ? null : JSON.parse(text), headers: response.headers }

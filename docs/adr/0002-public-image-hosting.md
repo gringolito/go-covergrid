@@ -68,6 +68,28 @@ Content-Type is `image/*` before handing the URL to the comment. A wrong type de
 with no image, which is a legible outcome, rather than a comment with a broken one. That guard is load
 bearing precisely because the assumption behind it is untested.
 
+## Catbox refuses anonymous uploads from GitHub Actions
+
+Observed, not theorised. `.github/workflows/probe-image-host.yml` uploaded the example grid map from
+an `ubuntu-latest` runner and Catbox answered:
+
+```
+status: 412   body: Invalid uploader   server: nginx
+```
+
+Four request shapes were tried — as shipped, without curl's `Expect: 100-continue`, with a browser
+User-Agent, and both — and every one returned the same thing. A plain `GET https://catbox.moe/` from
+the same runner returned 200, so the host is reachable and there is no Cloudflare challenge in the way;
+`Invalid uploader` is Catbox's own refusal of an anonymous upload from that address range.
+
+So the property that made Catbox win — anonymous, no account, no secret — is the property it does not
+actually offer here. A `userhash` would work but requires an account and a secret in every consuming
+repository, which is a different decision from this one and would have to be made on its own terms.
+The Content-Type question below is now moot for this host: nothing gets far enough to answer it.
+
+The soft-fail was right, though. The run that found this still posted its comment, with every number
+and no picture, and the warning named the status. Keep that shape for whatever host replaces it.
+
 ## Development constraint
 
 `catbox.moe` does not resolve on the corporate network — `dig` returns nothing and the proxy times out

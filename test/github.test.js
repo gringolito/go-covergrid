@@ -32,6 +32,21 @@ function client(responses, options = {}) {
   }
 }
 
+// A 403 is the one status the callers treat specially — it means a missing `permissions:` key
+// rather than a bug — so the status has to survive on the error and not only inside its message.
+test('a failed request carries the status code on the error', async () => {
+  const { api } = client([{ status: 403, body: { message: 'Resource not accessible by integration' } }])
+
+  await assert.rejects(
+    () => api.upsertComment({ prNumber: 7, marker: '<!--m-->', body: 'x' }),
+    (err) => {
+      assert.strictEqual(err.status, 403)
+      assert.match(err.message, /403/)
+      return true
+    },
+  )
+})
+
 test('requests carry the bearer token, the API version and a JSON accept header', async () => {
   const { calls, api } = client([{ body: { id: 1 } }])
   await api.request('GET', '/repos/o/r/issues/7/comments')

@@ -41,7 +41,11 @@ async function main() {
 
     setOutput('run-id', runId)
   } catch (err) {
-    warning(`Baseline lookup failed (${err.message}); continuing without a baseline.`)
+    const hint =
+      err.status === 403
+        ? ' The token cannot read this repository\'s workflow runs; add `actions: read` to the job\'s permissions.'
+        : ''
+    warning(`Baseline lookup failed (${err.message}); continuing without a baseline.${hint}`)
     setOutput('run-id', '')
   }
 }
