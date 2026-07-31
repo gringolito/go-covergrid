@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The action runs on whatever Node the runner image ships, which changes without
+        # warning, so the floor and the current release are both checked rather than one
+        # pinned version.
+        node: ['20', '22', '24']
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No install step: there are no dependencies and no lockfile (ADR-0003).
+      - run: node --test test/*.test.js
+
+  example-grid-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # docs/example-grid-map.svg is what the README shows, and it is a build product of the
+      # renderer over a committed fixture. Rendering is deterministic, so a rendered copy that
+      # differs from the committed one means the picture in the README is stale.
+      - name: Re-render the example grid map
+        run: node src/render-gridmap.js test/fixtures/sample-breakdown.txt "$RUNNER_TEMP/example-grid-map.svg"
+
+      - name: Check the committed copy is current
+        run: |
+          if ! diff -u docs/example-grid-map.svg "$RUNNER_TEMP/example-grid-map.svg"; then
+            echo "::error file=docs/example-grid-map.svg::The example grid map is stale. Regenerate it with: node src/render-gridmap.js test/fixtures/sample-breakdown.txt docs/example-grid-map.svg"
+            exit 1
+          fi

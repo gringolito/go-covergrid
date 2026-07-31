@@ -149,6 +149,14 @@ To look at a Grid Map without running anything on GitHub:
 node src/render-gridmap.js test/fixtures/sample-breakdown.txt /tmp/grid-map.svg
 ```
 
+The picture at the top of this file is rendered from the same fixture and committed, so a change to
+the renderer leaves it stale. CI fails when it is, and regenerating is the same command with a
+different destination:
+
+```bash
+node src/render-gridmap.js test/fixtures/sample-breakdown.txt docs/example-grid-map.svg
+```
+
 Layout regressions are invisible in unit tests and obvious in an image, so open the SVG. There are
 two fixtures: `sample-breakdown.txt` (18 packages, real statement counts under invented package names)
 and `big-breakdown.txt` (120 packages, fully synthetic, for watching the layout degrade). Both are
