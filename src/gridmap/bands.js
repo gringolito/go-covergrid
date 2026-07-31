@@ -3,11 +3,9 @@
 // Coverage Bands: the five fixed ranges a Coverage Ratio falls into, and the only thing
 // that determines a Tile's colour.
 //
-// The boundaries are conventional and NOT configurable, and not fitted to any
-// repository's distribution — a project whose Packages all reach the top Band should
-// render as a solid block of green because that is the true picture. See
-// docs/adr/0004-grid-map-geometry.md, which records an earlier draft that tuned these to
-// one repo's data and why that was rejected as overfitting.
+// The boundaries are conventional and not configurable. They are deliberately not fitted
+// to any repository's distribution: a project whose Packages all reach the top Band should
+// render as a solid block of green, because that is the true picture (ADR-0004).
 
 /** Upper boundaries of the first four Bands, in percent. */
 const CUTS = [50, 70, 85, 95]

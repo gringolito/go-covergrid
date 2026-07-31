@@ -50,10 +50,9 @@ const error = (message) => annotate('error', message)
 
 /**
  * The workflow file the current run belongs to. The runner sets `GITHUB_WORKFLOW_REF` to
- * `owner/repo/.github/workflows/ci.yml@refs/heads/main`, so the file name is derived rather
- * than configured: the Baseline can only live in this workflow's own runs, because no other
- * workflow uploads the breakdown artifact. Note that `GITHUB_WORKFLOW` is the workflow's
- * *display name*, which is not what the runs API accepts.
+ * `owner/repo/.github/workflows/ci.yml@refs/heads/main`. `GITHUB_WORKFLOW` would be easier
+ * to reach for and is wrong: it holds the workflow's *display name*, which the runs API
+ * does not accept.
  *
  * Split on the first `@` rather than the last: a branch name may contain one, and a
  * workflow file name realistically may not.

@@ -15,9 +15,7 @@ async function main() {
   try {
     if (!GITHUB_TOKEN) throw new Error('no github-token was supplied')
 
-    // Which workflow holds the Baseline is not configurable, and does not need to be: it is
-    // always the workflow this run belongs to. A different workflow's runs would not have
-    // uploaded the breakdown artifact in the first place.
+    // Always this run's own workflow: no other workflow uploads the breakdown artifact.
     const workflow = workflowFileFromRef(GITHUB_WORKFLOW_REF)
     if (!workflow) {
       throw new Error(`GITHUB_WORKFLOW_REF is absent or unparseable ("${GITHUB_WORKFLOW_REF ?? ''}")`)

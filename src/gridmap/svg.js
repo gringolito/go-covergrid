@@ -1,8 +1,6 @@
 'use strict'
 
-// SVG as string building. That is the whole renderer's output format, and it needs no
-// library at all, which is what keeps the zero-dependency rule cheap
-// (docs/adr/0003-composite-action-zero-dependencies.md).
+// SVG as string building, which needs no library (ADR-0003).
 //
 // Presentation attributes only: no <style>, no CSS, no <script>, nothing fetched from
 // another host. The file has to survive being served from public hosting, proxied by
@@ -19,15 +17,14 @@ function escapeText(value) {
   return String(value).replace(/[&<>"']/g, (c) => ENTITIES[c])
 }
 
-/** @param {string} value @returns {string} safe to place in a quoted attribute */
 function escapeAttr(value) {
   return escapeText(value)
 }
 
 function formatValue(value) {
   if (typeof value !== 'number') return escapeAttr(value)
-  // Two decimals is finer than a pixel at any plausible display size, and keeps the
-  // document from filling with 17-digit float noise out of the treemap's divisions.
+  // Finer than a pixel at any plausible size, and keeps the treemap's divisions from
+  // filling the document with 17-digit float noise.
   return String(Math.round(value * 100) / 100)
 }
 

@@ -2,10 +2,8 @@
 
 // Grid Map rendering: Breakdown File statistics in, an SVG document out.
 //
-// Pure and offline by construction. Nothing here touches the network, the GitHub API or
-// the filesystem, because the upload path cannot be exercised from the development
-// network (docs/adr/0002-public-image-hosting.md) and the renderer must stay testable
-// without it.
+// Pure by construction: no network, no GitHub API, no filesystem. Uploading lives in its
+// own script so this stays testable without reaching the host (ADR-0002).
 
 const { aggregateByPackage, totalStats, coverageRatio } = require('../breakdown.js')
 const { escapeText, tag, document, wellFormed } = require('./svg.js')
@@ -13,9 +11,8 @@ const { BANDS, bandOf } = require('./bands.js')
 const { squarify } = require('./treemap.js')
 
 /**
- * GitHub's comment content column. The coordinate space is set to the display width so a
- * font-size here is the size the reader sees, rather than a number that has to be divided
- * by a downscale factor before it means anything. See ADR-0004.
+ * GitHub's comment content column. The coordinate space is the display width, so a
+ * font-size in this file is the size the reader sees (ADR-0004).
  */
 const CANVAS_WIDTH = 830
 const BASE_HEIGHT = 467
@@ -52,10 +49,8 @@ const COUNT_MIN_TILE_H = 46
 const textWidth = (s, size) => s.length * size * ADVANCE_RATIO
 
 /**
- * Height grows with Package count: the width is fixed to the display column, so more
- * height is the only way to give every Tile more area. Verified on a synthetic
- * 120-Package repository, where the base height leaves a band of Tiles as unlabelled
- * chips and the grown height gets a percentage onto nearly all of them. ADR-0004.
+ * Height grows with Package count: the width is fixed to the display column, so height is
+ * the only way left to give every Tile more area (ADR-0004).
  *
  * @param {number} packageCount
  * @returns {number}
@@ -106,9 +101,8 @@ function label(content, { x, y, size, fill, anchor, chars }) {
       'font-size': size,
       fill,
       'text-anchor': anchor,
-      // The run is forced to exactly the width this code reserved for it, whatever font
-      // the reader's machine resolves. Without it a wide fallback font overflows the Tile
-      // and there is nothing this end can do about it.
+      // Pins the run to the width reserved for it, whatever font the reader's machine
+      // resolves. Without it a wide fallback font spills out of the Tile.
       textLength: chars * size * ADVANCE_RATIO,
       lengthAdjust: 'spacingAndGlyphs',
     },
@@ -172,7 +166,7 @@ function drawTile(tile, index, prefix) {
   const base = short.slice(short.lastIndexOf('/') + 1)
 
   // Full path if it fits, else the last segment, else no name at all. A Tile too small to
-  // label stays a bare colour chip — it is small precisely because it holds few
+  // label stays a bare colour chip, which is fine: it is small because it holds few
   // Statements, so the layout has already ranked it (ADR-0004).
   let name = ''
   if (h > NAME_MIN_TILE_H) {
@@ -183,9 +177,8 @@ function drawTile(tile, index, prefix) {
   const count = `${tile.total} stmt`
   const showCount = h > COUNT_MIN_TILE_H && textWidth(count, COUNT_SIZE) <= inner
 
-  // Both the name and the count claim their band of the Tile before the percentage is
-  // sized, so the percentage can never grow into either. Getting this wrong put a large
-  // percentage straight through the statement count on Tiles just tall enough for both.
+  // The name and the count claim their bands before the percentage is sized, so a large
+  // percentage cannot grow through either on a Tile just tall enough for both.
   const topUsed = name === '' ? PAD : NAME_SIZE + PAD * 2
   const bottomUsed = showCount ? COUNT_SIZE + PAD * 2 : PAD
   const availH = h - topUsed - bottomUsed

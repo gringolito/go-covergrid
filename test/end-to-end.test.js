@@ -1,9 +1,7 @@
 'use strict'
 
 // Drives the shipped entry points as real child processes. The GitHub API is stood up on
-// loopback and pointed at with GITHUB_API_URL, so nothing here reaches the network — which
-// is also the only way to exercise the comment path from a machine that cannot reach
-// Catbox (ADR-0002).
+// loopback and pointed at with GITHUB_API_URL, so nothing here reaches the network.
 
 const test = require('node:test')
 const assert = require('node:assert')
@@ -120,9 +118,9 @@ test('rendering writes a well-formed SVG and reports the totals as step outputs'
   }
 })
 
-// An underscore had no glyph in the bitmap font this used to embed, and needed a warning.
-// SVG resolves fonts on the reader's machine, so any character a real font covers renders.
-test('a package path outside the old bitmap font renders without complaint', async () => {
+// Fonts resolve on the reader's machine, so there is no glyph set to fall outside of and no
+// character worth warning about.
+test('an unusual package path renders without complaint', async () => {
   const ws = workspace()
   try {
     const breakdown = path.join(ws.dir, 'breakdown.txt')
@@ -240,7 +238,7 @@ test('the comment is created on a pull request, carrying the published grid map'
         BASE_BRANCH: 'main',
         CURRENT_BREAKDOWN_PATH: path.join(FIXTURES, 'sample-breakdown.txt'),
         BASE_BREAKDOWN_PATH: path.join(ws.dir, 'missing.txt'),
-        IMAGE_URL: 'https://files.catbox.moe/zzz999.svg',
+        IMAGE_URL: 'https://litter.catbox.moe/zzz999.svg',
       },
       ws.dir,
     )
@@ -249,7 +247,7 @@ test('the comment is created on a pull request, carrying the published grid map'
     assert.match(posted, /^<!-- go-covergrid:grid-map -->/)
     assert.match(posted, /✅ \*\*Coverage gate passed\*\*/)
     assert.match(posted, /\*\*Total coverage:\*\* .* 76\.8%/)
-    assert.match(posted, /!\[Coverage Grid Map\]\(https:\/\/files\.catbox\.moe\/zzz999\.svg\)/)
+    assert.match(posted, /!\[Coverage Grid Map\]\(https:\/\/litter\.catbox\.moe\/zzz999\.svg\)/)
     assert.ok(!posted.includes('Coverage Diff'), 'no baseline means no diff summary')
 
     assert.strictEqual(ws.outputs()['comment-id'], '4001')
@@ -377,7 +375,7 @@ test('the full comparison path renders a diff summary from two breakdown files',
         BASE_BRANCH: 'main',
         CURRENT_BREAKDOWN_PATH: path.join(FIXTURES, 'sample-breakdown.txt'),
         BASE_BREAKDOWN_PATH: baseline,
-        IMAGE_URL: 'https://files.catbox.moe/a.svg',
+        IMAGE_URL: 'https://litter.catbox.moe/a.svg',
       },
       ws.dir,
     )

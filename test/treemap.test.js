@@ -87,10 +87,9 @@ test('offsets are honoured so the layout can be inset', () => {
   )
 })
 
-// ADR-0004 records the measurement that justified squarified over slice-and-dice, and
-// quotes these ranges. Take the dimensions from the renderer's own constants rather than
-// hardcoding them: a copy that outlives a change to the canvas keeps passing while the
-// ADR it is supposed to be guarding goes stale.
+// ADR-0004 quotes these aspect-ratio ranges as its case for squarified over slice-and-dice.
+// Dimensions come from the renderer's own constants: a hardcoded copy would keep passing
+// after the canvas changed, while the ADR it guards went stale.
 test('the 18 sample packages produce no slivers', () => {
   const out = squarify(fixturePackages('sample-breakdown.txt'), 0, 0, CANVAS_WIDTH, gridMapHeight(18))
   assert.strictEqual(out.length, 18)

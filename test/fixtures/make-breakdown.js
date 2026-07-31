@@ -3,16 +3,14 @@
 // TEST TOOLING, NOT PART OF THE ACTION.
 //
 // Regenerates the breakdown fixtures from a coverage profile, standing in for
-// go-test-coverage, which is not installed here. The action itself never parses a coverage
-// profile — see docs/adr/0001-read-breakdown-files-not-the-profile.md. Do not import this
-// from src/, and do not grow it into a profile parser the action relies on.
+// go-test-coverage, which is not installed here. The action itself never parses a profile
+// (ADR-0001): do not import this from src/, and do not grow it into a parser src/ relies on.
 //
 //   node test/fixtures/make-breakdown.js cover.out sample-breakdown.txt
 //   node test/fixtures/make-breakdown.js big.out big-breakdown.txt
 //
 // Block identity is `file:startLine.startCol,endLine.endCol`, not `file:startLine:endLine`:
-// one source line can hold two distinct blocks, and the coarser key silently loses 4 of
-// this profile's 618 blocks. Getting that wrong is what ADR-0001 is about.
+// one source line can hold two distinct blocks, so the coarser key silently drops some.
 
 const fs = require('node:fs')
 const path = require('node:path')

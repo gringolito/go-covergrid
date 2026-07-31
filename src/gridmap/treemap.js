@@ -5,7 +5,7 @@
 //
 // Flat is a decision, not a simplification: a Package is everything before the last `/`
 // with no rollup, so `internal/tariff` and `internal/tariff/courier` are unrelated
-// neighbours. See docs/adr/0004-grid-map-geometry.md and ADR-0001.
+// neighbours (ADR-0004).
 
 /**
  * @template {{ total: number }} T

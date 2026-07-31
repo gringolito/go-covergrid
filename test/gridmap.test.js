@@ -183,9 +183,9 @@ test('the smallest tiles are colour chips and the biggest carry a percentage', (
   assert.ok(labelled > tiles.length, 'most tiles should carry at least a percentage')
 })
 
-// ADR-0004 quotes these counts as the evidence that the layout labels what matters. They
-// move whenever the canvas width, a font size or a padding changes, so they are asserted
-// here: the ADR's figures are only trustworthy while something checks them.
+// ADR-0004 quotes these counts as its evidence that the layout labels what matters. They
+// move whenever the canvas width, a font size or a padding does, so they are asserted here:
+// the ADR's figures are only trustworthy while something checks them.
 test('the sample fixture labels the number of packages ADR-0004 claims', () => {
   const stats = fixture('sample-breakdown.txt')
   const { svg, tiles } = renderGridMap({ stats })
@@ -226,9 +226,9 @@ function tileTextBoxes(svg) {
   )
 }
 
-// Found by rasterising the 120-package fixture and looking at it: a Tile just tall enough
-// for a statement count centred its percentage over the whole remaining height, so the two
-// ran into each other.
+// The failure this catches is a Tile just tall enough for a statement count centring its
+// percentage over the whole remaining height, so the two run into each other. Invisible in
+// every other assertion here, and obvious the moment the SVG is rasterised.
 test('no two text runs in the same tile overlap vertically', () => {
   for (const name of ['sample-breakdown.txt', 'big-breakdown.txt']) {
     const { svg } = renderGridMap({ stats: fixture(name) })

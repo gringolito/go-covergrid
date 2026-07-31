@@ -2,9 +2,7 @@
 
 // Entry point: Breakdown File in, Grid Map SVG on disk.
 //
-// Deliberately offline. It never uploads and never talks to the GitHub API, so the whole
-// renderer can be exercised on a laptop — which matters because the upload host is
-// unreachable from the development network (ADR-0002).
+// It never uploads and never talks to the GitHub API, so it runs on a laptop (ADR-0002).
 //
 //   BREAKDOWN_PATH=coverage-breakdown.txt OUTPUT_PATH=grid-map.svg node src/render-gridmap.js
 
