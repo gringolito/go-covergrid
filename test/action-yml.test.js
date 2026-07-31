@@ -154,15 +154,30 @@ test('the userhash reaches the publish script through the environment, not the c
 
 // A push to the base branch runs the gate and the renderer, and has no comment to put the
 // picture in. Publishing there would disclose the package tree for nobody to read (ADR-0002),
-// so the upload is gated on the event carrying a pull request.
-test('the grid map is only published on events that carry a pull request', () => {
-  const publish = steps().find((b) => b.includes('id: publish'))
-  assert.ok(publish, 'no step with id: publish')
+// and posting is pointless, so both are gated on the run carrying a pull request. The set of
+// events has to stay the one src/pr-context.js recognises.
+test('the run decides once whether it has a pull request', () => {
+  const prepare = steps().find((b) => b.includes('id: prepare'))
+  assert.ok(prepare, 'no step with id: prepare')
 
-  const condition = publish.join('\n').slice(publish.join('\n').indexOf('if:'))
-  assert.match(condition, /github\.event_name == 'pull_request'/)
-  assert.match(condition, /github\.event\.issue\.pull_request/, 'issue_comment fires for pull requests')
-  assert.match(condition, /inputs\.publish-image == 'true'/, 'the opt-out still has to work')
+  const text = prepare.join('\n')
+  assert.match(text, /github\.event_name == 'pull_request'/)
+  assert.match(text, /github\.event_name == 'pull_request_target'/)
+  assert.match(text, /github\.event\.issue\.pull_request/, 'issue_comment fires for pull requests too')
+  assert.match(text, /echo "is-pull-request=/, 'the answer has to reach later steps as an output')
+})
+
+test('publishing and commenting both wait on that answer', () => {
+  const gated = steps().filter((b) =>
+    b.some((l) => l.startsWith('if:') && l.includes("steps.prepare.outputs.is-pull-request == 'true'")),
+  )
+  const names = gated.map((b) => b[0].replace('name: ', ''))
+  for (const name of ['Publish the Grid Map', 'Post the pull request comment']) {
+    assert.ok(names.includes(name), `"${name}" runs on a push, where there is no pull request`)
+  }
+
+  const publish = gated.find((b) => b.includes('id: publish'))
+  assert.match(publish.join('\n'), /inputs\.publish-image == 'true'/, 'the opt-out still has to work')
 })
 
 test('the gate step tolerates failure so the comment is still posted', () => {

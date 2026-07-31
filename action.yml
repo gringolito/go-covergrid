@@ -10,9 +10,7 @@ branding:
 
 inputs:
   profile:
-    description: >-
-      Path to the coverage profile from `go test -coverprofile`. Handed straight to the
-      coverage gate; nothing in this action parses it (ADR-0001).
+    description: Path to the coverage profile from `go test -coverprofile`.
     required: true
     default: cover.out
   config:
@@ -85,8 +83,12 @@ runs:
   using: composite
   steps:
     - name: Prepare workspace
-      id: paths
+      id: prepare
       shell: bash
+      env:
+        IS_PULL_REQUEST: >-
+          ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target' ||
+          github.event.issue.pull_request != null) && 'true' || 'false' }}
       run: |
         set -euo pipefail
         work="${RUNNER_TEMP}/go-covergrid"
@@ -97,6 +99,7 @@ runs:
           echo "baseline-dir=${work}/baseline"
           echo "baseline-breakdown=${work}/baseline/coverage-breakdown.txt"
           echo "grid-map=${work}/grid-map.svg"
+          echo "is-pull-request=${IS_PULL_REQUEST}"
         } >>"$GITHUB_OUTPUT"
 
     - name: Find the baseline run
@@ -114,7 +117,7 @@ runs:
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: ${{ inputs.breakdown-artifact }}
-        path: ${{ steps.paths.outputs.baseline-dir }}
+        path: ${{ steps.prepare.outputs.baseline-dir }}
         run-id: ${{ steps.baseline-run.outputs.run-id }}
         github-token: ${{ inputs.github-token }}
 
@@ -125,23 +128,23 @@ runs:
       with:
         config: ${{ inputs.config }}
         profile: ${{ inputs.profile }}
-        breakdown-file-name: ${{ steps.paths.outputs.breakdown }}
-        diff-base-breakdown-file-name: ${{ steps.baseline-download.outcome == 'success' && steps.paths.outputs.baseline-breakdown || '' }}
+        breakdown-file-name: ${{ steps.prepare.outputs.breakdown }}
+        diff-base-breakdown-file-name: ${{ steps.baseline-download.outcome == 'success' && steps.prepare.outputs.baseline-breakdown || '' }}
         diff-threshold: ${{ inputs.diff-threshold }}
 
     - name: Upload the breakdown file for the next run's baseline
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ inputs.breakdown-artifact }}
-        path: ${{ steps.paths.outputs.breakdown }}
+        path: ${{ steps.prepare.outputs.breakdown }}
         if-no-files-found: warn
 
     - name: Render the Grid Map
       id: grid-map
       shell: bash
       env:
-        BREAKDOWN_PATH: ${{ steps.paths.outputs.breakdown }}
-        OUTPUT_PATH: ${{ steps.paths.outputs.grid-map }}
+        BREAKDOWN_PATH: ${{ steps.prepare.outputs.breakdown }}
+        OUTPUT_PATH: ${{ steps.prepare.outputs.grid-map }}
       run: |
         set -euo pipefail
         if [[ ! -f "$BREAKDOWN_PATH" ]]; then
@@ -152,15 +155,14 @@ runs:
 
     - name: Publish the Grid Map
       id: publish
-      if: >-
-        inputs.publish-image == 'true' && (github.event_name == 'pull_request' ||
-        github.event_name == 'pull_request_target' || github.event.issue.pull_request != null)
+      if: inputs.publish-image == 'true' && steps.prepare.outputs.is-pull-request == 'true'
       shell: bash
       env:
         CATBOX_USERHASH: ${{ inputs.catbox-userhash }}
-      run: bash "${GITHUB_ACTION_PATH}/scripts/publish-image.sh" "${{ steps.paths.outputs.grid-map }}"
+      run: bash "${GITHUB_ACTION_PATH}/scripts/publish-image.sh" "${{ steps.prepare.outputs.grid-map }}"
 
     - name: Post the pull request comment
+      if: steps.prepare.outputs.is-pull-request == 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
@@ -168,8 +170,8 @@ runs:
         HAS_BASELINE: ${{ steps.baseline-download.outcome == 'success' }}
         DIFF_THRESHOLD: ${{ inputs.diff-threshold }}
         BASE_BRANCH: ${{ inputs.base-branch }}
-        CURRENT_BREAKDOWN_PATH: ${{ steps.paths.outputs.breakdown }}
-        BASE_BREAKDOWN_PATH: ${{ steps.paths.outputs.baseline-breakdown }}
+        CURRENT_BREAKDOWN_PATH: ${{ steps.prepare.outputs.breakdown }}
+        BASE_BREAKDOWN_PATH: ${{ steps.prepare.outputs.baseline-breakdown }}
         IMAGE_URL: ${{ steps.publish.outputs.url }}
         IMAGE_EXPIRES: ${{ steps.publish.outputs.expires }}
       run: node "${GITHUB_ACTION_PATH}/src/post-comment.js"
