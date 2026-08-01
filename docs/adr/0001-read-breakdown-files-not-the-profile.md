@@ -5,17 +5,13 @@ The action embeds `vladopajic/go-test-coverage` to run the threshold gate, and t
 the total, the diff summary, the impacted tables — is computed from those files. Nothing parses
 `cover.out`. The profile is accepted as an input only to hand straight to go-test-coverage.
 
-The reason is a trap in the profile format. Runs using `-coverpkg=./...` make every test binary
-instrument every package, so each block is emitted once per binary. The sample `cover.out` in this repo
-carries 8,713 block lines for just **618 unique blocks**, each repeated 14 or 15 times. Summing the
-statement column naively reports 13,992 statements at 8.1% coverage; collapsing duplicates first gives
-the true **989 statements at 76.8%**. A profile parser that misses this is wrong by 23x on size and by
-an order of magnitude on ratio.
+The profile format presents a trap. Runs using `-coverpkg=./...` instrument every package in every test
+binary, emitting each block once per binary. Naively summing duplicated blocks produces wildly wrong totals
+and ratios — an order of magnitude error.
 
-Collapsing correctly is harder than it first looks, too. Block identity includes start and end
-*columns*, not just lines, because `if x { a } else { b }` puts two distinct blocks on one line. Keying
-on `file:startLine:endLine` over-collapses 4 of the 618 blocks, a 0.4% error that no amount of staring
-at one implementation reveals. go-test-coverage has already solved all of this upstream.
+Block identity requires both start and end *columns*, not just lines. Go places multiple blocks on a single
+line in constructs like `if x { a } else { b }`. Keying on `file:startLine:endLine` over-collapses blocks
+and causes errors invisible to code inspection. go-test-coverage solves this upstream.
 
 ## Considered Options
 
@@ -31,10 +27,9 @@ at one implementation reveals. go-test-coverage has already solved all of this u
 
 ## Consequences
 
-The action cannot function without go-test-coverage, and that is accepted rather than regretted — its
-version is pinned inside `action.yml`, so upgrading it requires a release of this action.
+The action cannot function without go-test-coverage — its version is pinned in `action.yml`, so
+upgrading requires a new action release.
 
-`packageForFile` semantics come from upstream: everything before the last `/`, with no rollup. So
-`internal/tariff` and `internal/tariff/courier` are separate Tiles that happen to sit next to each
-other, and `internal/tariff`'s 144 statements are its own files only, excluding every child package.
-Readers may expect nesting; the Grid Map deliberately does not nest.
+`packageForFile` semantics come from upstream: everything before the last `/`, with no rollup. This means
+nested packages are separate Tiles, and parents' Statements exclude every child's. Readers may expect
+nesting — see [ADR-0004](./0004-grid-map-geometry.md) for the design rationale.
