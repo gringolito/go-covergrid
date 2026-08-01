@@ -1,0 +1,28 @@
+name: Update Moving Tags
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-moving-tags:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Update moving tags
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          MAJOR="${TAG%%.*}"
+          MINOR="${TAG%.*}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -f "$MAJOR" "$SHA"
+          git tag -f "$MINOR" "$SHA"
+          git push --force origin "$MAJOR" "$MINOR"
