@@ -10,6 +10,19 @@ set -uo pipefail
 svg="${1:?usage: publish-image.sh <file.svg>}"
 userhash="${CATBOX_USERHASH:-}"
 
+# curl's stderr is kept out of its stdout. `--retry` narrates every attempt it abandons there,
+# so a call that succeeds on the second try still writes a `curl: (22) ...` line — merging the
+# two streams put that text in front of the URL and made a successful upload look like a bad
+# reply. Read the diagnostic from here instead, only when the exit status says to.
+curl_stderr="$(mktemp)"
+trap 'rm -f "$curl_stderr"' EXIT
+
+# A GitHub annotation is a single line, so a multi-line complaint is collapsed rather than
+# truncated at the first newline.
+one_line() {
+  tr '\n' ' ' <"$1" | sed -e 's/[[:space:]]\{2,\}/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 fail_soft() {
   printf '::warning::%s\n' "$1"
   {
@@ -42,9 +55,14 @@ if ! response=$(curl --silent --show-error --fail \
   --form reqtype=fileupload \
   "${upload_form[@]}" \
   --form "fileToUpload=@${svg}" \
-  "$endpoint" 2>&1); then
-  fail_soft "Grid map upload failed: ${response}. The comment will be posted without the image."
+  "$endpoint" 2>"$curl_stderr"); then
+  fail_soft "Grid map upload failed: $(one_line "$curl_stderr"). The comment will be posted without the image."
 fi
+
+# Trim surrounding whitespace before the prefix check below: a host answering with a leading
+# newline would otherwise be read as the wrong host and a good upload thrown away again.
+response="${response#"${response%%[![:space:]]*}"}"
+response="${response%"${response##*[![:space:]]}"}"
 
 if [[ "$response" != "$url_prefix"* ]]; then
   hint=''
@@ -57,8 +75,8 @@ fi
 # Keep this check: camo serves image/* and refuses everything else, so a host that labels the
 # upload application/octet-stream would give every comment a broken image (ADR-0002).
 if ! content_type=$(curl --silent --show-error --fail --location --head \
-  --max-time 30 --write-out '%{content_type}' --output /dev/null "$response" 2>&1); then
-  fail_soft "Could not read the Content-Type of ${response}: ${content_type}. The comment will be posted without the image."
+  --max-time 30 --write-out '%{content_type}' --output /dev/null "$response" 2>"$curl_stderr"); then
+  fail_soft "Could not read the Content-Type of ${response}: $(one_line "$curl_stderr"). The comment will be posted without the image."
 fi
 
 case "$content_type" in

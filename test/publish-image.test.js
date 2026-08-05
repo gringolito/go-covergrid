@@ -17,17 +17,28 @@ const { promisify } = require('node:util')
 const execFileAsync = promisify(execFile)
 const SCRIPT = path.join(__dirname, '..', 'scripts', 'publish-image.sh')
 
+// Single quotes so embedded newlines reach the shim as newlines rather than as the
+// two characters a JSON escape would produce.
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
 /**
  * Runs the script against a fake curl.
  *
  * @param {object} opts
  * @param {string} [opts.uploadReply] what the upload call prints — a URL, or an error page
+ * @param {string} [opts.uploadStderr] what the upload call writes to stderr; `--retry` narrates
+ *   every attempt it makes there, so a call that succeeds on its second try still says plenty
+ * @param {string} [opts.headStderr] what the HEAD call writes to stderr
  * @param {string} [opts.contentType] what the HEAD call reports
  * @param {number} [opts.uploadExit] non-zero to simulate a failed upload
  * @param {Record<string,string>} [opts.env] extra environment, e.g. CATBOX_USERHASH
  */
 async function run({
   uploadReply = 'https://litter.catbox.moe/abc123.svg',
+  uploadStderr = '',
+  headStderr = '',
   contentType = 'image/svg+xml',
   uploadExit = 0,
   env = {},
@@ -47,8 +58,13 @@ async function run({
       '#!/usr/bin/env bash',
       `printf '%s\\n' "$*" >>"${argLog}"`,
       'for arg in "$@"; do',
-      `  if [[ "$arg" == --head ]]; then printf '%s' "${contentType}"; exit 0; fi`,
+      '  if [[ "$arg" == --head ]]; then',
+      `    printf '%s' ${shellQuote(headStderr)} >&2`,
+      `    printf '%s' "${contentType}"`,
+      '    exit 0',
+      '  fi',
       'done',
+      `printf '%s' ${shellQuote(uploadStderr)} >&2`,
       `printf '%s' "${uploadReply}"`,
       `exit ${uploadExit}`,
       '',
@@ -143,6 +159,49 @@ test('the Content-Type is read back from the URL that was actually returned', as
   assert.strictEqual(calls.length, 2, 'upload, then HEAD')
   assert.match(calls[1], /--head/)
   assert.match(calls[1], /https:\/\/litter\.catbox\.moe\/xyz\.svg/)
+})
+
+// Litterbox 504s often enough that `--retry` earns its keep, and a retried call narrates the
+// attempt it gave up on to stderr before printing the URL of the one that worked to stdout.
+// Folding the two streams together made that success unrecognisable: the warning text landed
+// in front of the URL, the host-prefix check saw `curl:` instead of `https://litter`, and a
+// perfectly good upload was discarded. Observed in the wild on gringolito/vector#88.
+test('a retry that eventually succeeds is published, not mistaken for a bad reply', async () => {
+  const { stdout, outputs } = await run({
+    uploadStderr:
+      'Warning: Problem (server 504). Will retry in 2 seconds. 3 retries left.\ncurl: (22) The requested URL returned error: 504\n',
+    uploadReply: 'https://litter.catbox.moe/qurlu9.svg',
+  })
+
+  assert.strictEqual(outputs.url, 'https://litter.catbox.moe/qurlu9.svg')
+  assert.strictEqual(outputs.expires, '72h')
+  assert.match(stdout, /^::notice::Grid map published at /m)
+  assert.ok(!stdout.includes('::warning::'), 'a successful upload should not warn at all')
+})
+
+test('stderr noise on the HEAD call does not corrupt the Content-Type check', async () => {
+  const { stdout, outputs } = await run({
+    headStderr: 'Warning: Problem (server 504). Will retry in 2 seconds. 3 retries left.\n',
+    contentType: 'image/svg+xml',
+  })
+
+  assert.strictEqual(outputs['content-type'], 'image/svg+xml')
+  assert.strictEqual(outputs.url, 'https://litter.catbox.moe/abc123.svg')
+  assert.ok(!stdout.includes('rather than an image type'), 'the type was image/svg+xml all along')
+})
+
+// The diagnostic still has to survive, and a GitHub annotation is one line: a multi-line curl
+// complaint has to arrive collapsed rather than with everything after the first line dropped.
+test('a genuinely failed upload still reports what curl said, on one line', async () => {
+  const { stdout, outputs } = await run({
+    uploadExit: 22,
+    uploadReply: '',
+    uploadStderr: 'Warning: Problem (server 504).\ncurl: (22) The requested URL returned error: 504\n',
+  })
+
+  assert.match(stdout, /^::warning::Grid map upload failed: .*curl: \(22\).*504/m)
+  assert.match(stdout, /Warning: Problem \(server 504\)\./, 'the whole complaint is kept')
+  assert.strictEqual(outputs.url, '')
 })
 
 test('a failed upload warns and yields an empty url, without failing the job', async () => {
