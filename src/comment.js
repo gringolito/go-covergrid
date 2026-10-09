@@ -186,21 +186,15 @@ function gateStatusLine({ outcome, diffThreshold, hasBaseline, totalDiff, baseBr
 }
 
 /**
- * The Grid Map, or an explanation of its absence. Publishing is on by default, so a
- * missing image is worth a sentence rather than a silent gap (ADR-0002).
+ * The Grid Map, or an explanation of its absence, so a missing picture is a sentence rather
+ * than a silent gap.
  */
-function gridMapSection(imageUrl, imageExpiresIn) {
+function gridMapSection(imageUrl) {
   if (!imageUrl) {
-    return '_Grid map not published for this run (`publish-image` is off, or the upload failed — check the job log)._'
+    return '_Grid map not published for this run. Set `attachment-token` to show it here; if it is set, the upload failed — check the job log._'
   }
 
-  const image = `![Coverage Grid Map](${imageUrl})`
-  if (!imageExpiresIn) return image
-
-  return (
-    `${image}\n\n<sub>The picture is hosted anonymously and expires ${imageExpiresIn} after the run ` +
-    'that posted it.</sub>'
-  )
+  return `![Coverage Grid Map](${imageUrl})`
 }
 
 /**
@@ -213,7 +207,6 @@ function gridMapSection(imageUrl, imageExpiresIn) {
  * @param {import('./breakdown.js').Stat[]} args.base
  * @param {number | undefined} args.prNumber
  * @param {string | null} args.imageUrl published Grid Map URL, or null
- * @param {string | null} [args.imageExpiresIn] how long the host keeps it, e.g. "72h"
  * @returns {string} markdown
  */
 function renderComment({
@@ -225,7 +218,6 @@ function renderComment({
   base,
   prNumber,
   imageUrl,
-  imageExpiresIn,
 }) {
   const currentPkgs = aggregateByPackage(current)
   const basePkgs = aggregateByPackage(base)
@@ -245,7 +237,7 @@ function renderComment({
     `**Total coverage:** ${bar(totalPct)} ${round1(totalPct).toFixed(1)}%` +
       (totalDiff === null ? '' : ` (${formatSignedPct(totalDiff, 2)} vs ${baseBranch})`),
     '',
-    gridMapSection(imageUrl, imageExpiresIn),
+    gridMapSection(imageUrl),
     '',
   ]
 

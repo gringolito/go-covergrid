@@ -39,16 +39,11 @@ inputs:
       Passed to the gate and quoted in the comment when the gate fails. -101 disables it.
     required: false
     default: '-101'
-  publish-image:
+  attachment-token:
     description: >-
-      Publish the Grid Map to public image hosting so GitHub can render it inline. The host is
-      Litterbox, which deletes the image after 72 hours; set catbox-userhash to keep them.
-    required: false
-    default: 'true'
-  catbox-userhash:
-    description: >-
-      Optional. A Catbox account's userhash, which switches publishing from Litterbox to
-      Catbox so the images never expire.
+      Personal access token used to upload the Grid Map to GitHub so the comment can show it.
+      Its owner needs write access to the repository. GITHUB_TOKEN and GitHub App tokens cannot
+      upload. Without it the comment is posted without the picture.
     required: false
     default: ''
   fail-on-gate:
@@ -73,7 +68,7 @@ outputs:
     description: Path to the rendered Grid Map SVG under RUNNER_TEMP.
     value: ${{ steps.grid-map.outputs.grid-map-path }}
   grid-map-url:
-    description: Published Grid Map URL, empty when publishing is off or the upload failed.
+    description: Uploaded Grid Map URL, empty when no attachment-token is set or the upload failed.
     value: ${{ steps.publish.outputs.url }}
   gate-outcome:
     description: '"success" or "failure" from the coverage gate step.'
@@ -155,10 +150,11 @@ runs:
 
     - name: Publish the Grid Map
       id: publish
-      if: inputs.publish-image == 'true' && steps.prepare.outputs.is-pull-request == 'true'
+      if: inputs.attachment-token != '' && steps.prepare.outputs.is-pull-request == 'true'
       shell: bash
       env:
-        CATBOX_USERHASH: ${{ inputs.catbox-userhash }}
+        ATTACHMENT_TOKEN: ${{ inputs.attachment-token }}
+        REPOSITORY_ID: ${{ github.event.repository.id }}
       run: bash "${GITHUB_ACTION_PATH}/scripts/publish-image.sh" "${{ steps.prepare.outputs.grid-map }}"
 
     - name: Post the pull request comment
@@ -173,7 +169,6 @@ runs:
         CURRENT_BREAKDOWN_PATH: ${{ steps.prepare.outputs.breakdown }}
         BASE_BREAKDOWN_PATH: ${{ steps.prepare.outputs.baseline-breakdown }}
         IMAGE_URL: ${{ steps.publish.outputs.url }}
-        IMAGE_EXPIRES: ${{ steps.publish.outputs.expires }}
       run: node "${GITHUB_ACTION_PATH}/src/post-comment.js"
 
     - name: Fail on a failed gate

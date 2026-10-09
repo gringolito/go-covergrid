@@ -3,8 +3,7 @@
 // SVG as string building, which needs no library (ADR-0003).
 //
 // Presentation attributes only: no <style>, no CSS, no <script>, nothing fetched from
-// another host. The file has to survive being served from public hosting, proxied by
-// GitHub's camo and rendered inside an <img>, where scripts do not run and external
+// another host. The file is rendered inside an <img>, where scripts do not run and external
 // references do not load.
 
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }

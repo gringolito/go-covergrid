@@ -24,7 +24,7 @@ function render(overrides = {}) {
     current,
     base,
     prNumber: 31,
-    imageUrl: 'https://litter.catbox.moe/abc123.svg',
+    imageUrl: 'https://github.com/user-attachments/assets/abc123',
     ...overrides,
   })
 }
@@ -112,28 +112,14 @@ test('the diff summary counts statements, not lines', () => {
 })
 
 test('the grid map image is embedded when a published URL is available', () => {
-  assert.match(render(), /!\[Coverage Grid Map\]\(https:\/\/litter\.catbox\.moe\/abc123\.svg\)/)
-})
-
-// The default host deletes the file after 72 hours, so an old comment shows a broken image.
-// The caption is what stops that reading as a bug in this action.
-test('an expiring image is captioned with how long it lasts', () => {
-  const body = render({ imageExpiresIn: '72h' })
-  assert.match(body, /expires 72h after the run/)
-  assert.ok(body.indexOf('![Coverage Grid Map]') < body.indexOf('expires 72h'), 'caption follows the image')
-})
-
-test('no caption is added when the host does not expire the image', () => {
-  const body = render({ imageExpiresIn: null })
-  assert.match(body, /!\[Coverage Grid Map\]/)
-  assert.ok(!body.includes('expires'))
+  assert.match(render(), /!\[Coverage Grid Map\]\(https:\/\/github\.com\/user-attachments\/assets\/abc123\)/)
 })
 
 test('with no published URL the comment says where the grid map went', () => {
   const body = render({ imageUrl: null })
   assert.ok(!body.includes('!['))
   assert.match(body, /grid map/i)
-  assert.match(body, /publish-image/)
+  assert.match(body, /attachment-token/)
 })
 
 test('impacted packages are listed, with new ones flagged', () => {
