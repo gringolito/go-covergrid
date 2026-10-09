@@ -67,10 +67,18 @@ case "$status" in
     ;;
 esac
 
-if [[ ! "$(<"$reply")" =~ \"url\":\"(https://github\.com/user-attachments/assets/[^\"]+)\" ]]; then
+# Anything but an HTTPS asset URL on github.com would embed something we did not upload.
+if ! url=$(node -e '
+  const { url } = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+  const parsed = new URL(url)
+  if (parsed.protocol !== "https:" || parsed.host !== "github.com" ||
+      !/^\/user-attachments\/assets\/[^/]+$/.test(parsed.pathname) || parsed.search || parsed.hash) {
+    process.exit(1)
+  }
+  process.stdout.write(parsed.href)
+' "$reply" 2>/dev/null); then
   fail_soft "Unexpected reply from the upload endpoint: $(one_line "$reply")."
 fi
-url="${BASH_REMATCH[1]}"
 
 printf 'url=%s\n' "$url" >>"$GITHUB_OUTPUT"
 printf '::notice::Grid map uploaded to %s. GitHub shows it to whoever can read this repository.\n' "$url"

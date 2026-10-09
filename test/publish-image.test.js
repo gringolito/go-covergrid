@@ -154,10 +154,23 @@ test('any other refusal passes on what GitHub said, on one line', async () => {
   assert.strictEqual(outputs.url, '')
 })
 
+test('a formatted JSON reply is read like a compact one', async () => {
+  const { outputs } = await run({ reply: `{\n  "id": 7,\n  "url": "${ASSET}"\n}` })
+  assert.strictEqual(outputs.url, ASSET)
+})
+
 test('a 201 without an asset URL degrades instead of publishing garbage', async () => {
-  const { stdout, outputs } = await run({ reply: '{"url":"https://evil.example/x.svg"}' })
-  assert.match(stdout, /^::warning::Unexpected reply from the upload endpoint/m)
-  assert.strictEqual(outputs.url, '')
+  for (const reply of [
+    '{"url":"https://evil.example/user-attachments/assets/x"}',
+    '{"url":"http://github.com/user-attachments/assets/x"}',
+    '{"url":"https://github.com/user-attachments/assets/x/../../evil"}',
+    '{"name":"grid-map.svg"}',
+    `<html>"url":"${ASSET}"</html>`,
+  ]) {
+    const { stdout, outputs } = await run({ reply })
+    assert.match(stdout, /^::warning::Unexpected reply from the upload endpoint/m, reply)
+    assert.strictEqual(outputs.url, '', reply)
+  }
 })
 
 // A retried call narrates the attempt it gave up on to stderr before the one that worked
