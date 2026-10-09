@@ -6,13 +6,12 @@ Logic splits into four independently invocable units, each a `action.yml` step:
 | --- | --- | --- | --- |
 | `src/find-baseline.js` | token, base branch, `GITHUB_WORKFLOW_REF` | `run-id` | GitHub API |
 | `src/render-gridmap.js` | a Breakdown File | an SVG, coverage outputs | none |
-| `scripts/publish-image.sh` | an SVG | `url`, `expires`, `content-type` | Litterbox |
+| `scripts/publish-image.sh` | an SVG, a personal token | `url` | GitHub uploads |
 | `src/post-comment.js` | two Breakdown Files, image URL | `comment-id` | GitHub API |
 
-[ADR-0002](./0002-public-image-hosting.md) enforces this split: the external image hosting doesn't resolve
-on development networks, so nothing rendering can also upload. The renderer becomes untestable offline
-otherwise. The renderer takes a file path, outputs a file; the URL reaches the comment as an environment
-variable.
+The upload needs the network and a personal token ([ADR-0006](./0006-github-user-attachments.md)), so
+nothing rendering can also upload; the renderer would become untestable offline otherwise. The renderer
+takes a file path, outputs a file; the URL reaches the comment as an environment variable.
 
 Same for the comment: the comment builder neither renders nor uploads, so the body is a pure function of
 Breakdown Files, an outcome, and a URL. This lets the full posting path run end-to-end against a local

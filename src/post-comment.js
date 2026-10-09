@@ -30,7 +30,6 @@ async function main() {
     CURRENT_BREAKDOWN_PATH,
     BASE_BREAKDOWN_PATH,
     IMAGE_URL,
-    IMAGE_EXPIRES,
   } = process.env
 
   const prNumber = prNumberFrom(readContext())
@@ -62,7 +61,6 @@ async function main() {
       base: base || [],
       prNumber,
       imageUrl: IMAGE_URL || null,
-      imageExpiresIn: IMAGE_EXPIRES || null,
     })
   }
 

@@ -130,32 +130,26 @@ function inputBlock(name) {
   return next === -1 ? rest : rest.slice(0, next)
 }
 
-test('publishing the grid map is on by default, with an opt-out', () => {
-  assert.match(inputBlock('publish-image'), /default: 'true'/)
-})
-
-// The empty default is load bearing, not tidy: it is what makes Litterbox the behaviour for
-// anyone who configures nothing, which is the premise ADR-0002 rests on.
-test('the catbox userhash is optional and defaults to nothing', () => {
-  const block = inputBlock('catbox-userhash')
+// Optional, so the gate and the comment still work for anyone who has not created a token yet.
+test('the attachment token is optional and defaults to nothing', () => {
+  const block = inputBlock('attachment-token')
   assert.match(block, /required: false/)
   assert.match(block, /default: ''/)
 })
 
-test('the userhash reaches the publish script through the environment, not the command line', () => {
+test('the attachment token reaches the publish script through the environment, not the command line', () => {
   const publish = steps().find((b) => b.includes('id: publish'))
   assert.ok(publish, 'no step with id: publish')
-  assert.match(publish.join('\n'), /CATBOX_USERHASH: \$\{\{ inputs\.catbox-userhash \}\}/)
+  assert.match(publish.join('\n'), /ATTACHMENT_TOKEN: \$\{\{ inputs\.attachment-token \}\}/)
 
   const runLine = publish.find((line) => line.startsWith('run:'))
   assert.ok(runLine, 'the publish step runs nothing')
-  assert.ok(!runLine.includes('catbox-userhash'), 'an argument would be echoed in the job log')
+  assert.ok(!runLine.includes('attachment-token'), 'an argument would be echoed in the job log')
 })
 
 // A push to the base branch runs the gate and the renderer, and has no comment to put the
-// picture in. Publishing there would disclose the package tree for nobody to read (ADR-0002),
-// and posting is pointless, so both are gated on the run carrying a pull request. The set of
-// events has to stay the one src/pr-context.js recognises.
+// picture in, so uploading and posting are both gated on the run carrying a pull request. The
+// set of events has to stay the one src/pr-context.js recognises.
 test('the run decides once whether it has a pull request', () => {
   const prepare = steps().find((b) => b.includes('id: prepare'))
   assert.ok(prepare, 'no step with id: prepare')
@@ -177,7 +171,7 @@ test('publishing and commenting both wait on that answer', () => {
   }
 
   const publish = gated.find((b) => b.includes('id: publish'))
-  assert.match(publish.join('\n'), /inputs\.publish-image == 'true'/, 'the opt-out still has to work')
+  assert.match(publish.join('\n'), /inputs\.attachment-token != ''/, 'no token means no upload attempt')
 })
 
 test('the gate step tolerates failure so the comment is still posted', () => {

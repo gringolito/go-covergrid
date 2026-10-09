@@ -8,39 +8,30 @@ comment carrying the gate result, the picture, and the change since the base bra
 
 ![Grid Map](docs/example-grid-map.svg)
 
-## Read this before you enable it
+## Grid Map image: `attachment-token`
 
-The Grid Map is **published to public image hosting on every pull request run, by default.**
-(A `push` run renders the picture but never uploads it, because it has no comment to put it in.)
+GitHub comments can't embed an SVG directly, so the action uploads the Grid Map as a GitHub attachment,
+the same as dragging an image into a comment. Only people who can read the repository can see it, and
+it doesn't expire.
 
-GitHub strips inline `<svg>` from a comment body, forbids `style`, and refuses `data:` URIs, and every
-image it does render is refetched through its camo proxy, which cannot reach anything requiring
-authentication. An inline picture therefore requires an anonymously readable public URL. There is no
-configuration of GitHub that avoids this.
+The upload needs a personal access token. `GITHUB_TOKEN` and GitHub App tokens are rejected. Use either:
 
-So for a private repository, publishing discloses your package tree and each package's coverage to
-anyone holding the URL. The URL is unguessable, not secret. It appears in the comment and in camo's
-cache.
+- a **fine-grained token** scoped to the repository with `Pull requests: Read and write`, or
+- a **classic token** with the `repo` scope.
 
-If you don't want any of it, set `publish-image: false`; the comment still carries every number, minus
-the picture.
-
-## Your grid maps expire after 72 hours
-
-By default the picture is uploaded to [Litterbox](https://litterbox.catbox.moe), which **deletes it
-after 72 hours.**
-
-### Keeping them: `catbox-userhash`
-
-If you want the pictures to stick around, create a [Catbox](https://catbox.moe) account, copy the
-userhash from your account settings, and pass it in. Publishing then goes to Catbox instead of
-Litterbox and nothing expires.
+The token's owner must have write access to the repository. Store the token as a secret:
 
 ```yaml
 - uses: gringolito/go-covergrid@v1
   with:
-    catbox-userhash: ${{ secrets.CATBOX_USERHASH }}
+    attachment-token: ${{ secrets.COVERGRID_ATTACHMENT_TOKEN }}
 ```
+
+The token is used only for the upload, which is attributed to its owner. `github-token` still posts the
+comment.
+
+Without `attachment-token`, the comment is posted without the image. Pull requests from forks get no
+secrets, so they never upload; their read-only `GITHUB_TOKEN` can't post the comment either.
 
 ## Isn't this go-cover-treemap?
 
@@ -87,6 +78,7 @@ jobs:
         with:
           profile: cover.out
           config: ./.testcoverage.yml
+          attachment-token: ${{ secrets.COVERGRID_ATTACHMENT_TOKEN }}
 ```
 
 Name the file whatever you like — the baseline lookup finds the workflow it is running in on its own.
@@ -114,8 +106,7 @@ section. That's expected, not a misconfiguration; the second PR after a merge to
 | `base-branch` | the repository default branch | Where the baseline comes from. |
 | `breakdown-artifact` | `coverage-breakdown` | Artifact name for the breakdown file. Changing it orphans every existing baseline. |
 | `diff-threshold` | `-101` | Minimum allowed change in total coverage, in percentage points. `-101` disables it. |
-| `publish-image` | `true` | Publish the Grid Map. Read the disclosure above. |
-| `catbox-userhash` | — | Optional. A Catbox userhash, so the images never expire. Pass it from a secret. |
+| `attachment-token` | — | Personal access token for uploading the Grid Map image. See [Grid Map image](#grid-map-image-attachment-token). |
 | `fail-on-gate` | `true` | Fail the job when the gate fails. The comment is posted either way. |
 
 ### Outputs
@@ -184,5 +175,4 @@ which stands in for
 go-test-coverage. That generator is test tooling and nothing in `src/` may import it.
 
 The renderer never touches the network. Uploading and comment posting are separate scripts, because
-the upload host is unreachable from some corporate networks and the renderer has to stay testable
-without it.
+the upload needs a personal token and the renderer has to stay testable without one.

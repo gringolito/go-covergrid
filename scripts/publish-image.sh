@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-# Publishes the Grid Map SVG and writes `url`, `expires` and `content-type` to $GITHUB_OUTPUT.
+# Uploads the Grid Map SVG as a GitHub user attachment and writes `url` to $GITHUB_OUTPUT.
 #
-# Litterbox is the default because it needs no account and no secret, and it is the only
-# anonymous host left standing. The userhash lifts that 72-hour limit for anyone willing to hold
-# a Catbox account.
+# The upload endpoint takes only a token that belongs to a person with write access to the
+# repository. GITHUB_TOKEN and GitHub App installation tokens get a 404 (ADR-0006).
 
 set -uo pipefail
 
 svg="${1:?usage: publish-image.sh <file.svg>}"
-userhash="${CATBOX_USERHASH:-}"
+token="${ATTACHMENT_TOKEN:-}"
+repository_id="${REPOSITORY_ID:-}"
 
-# curl's stderr is kept out of its stdout. `--retry` narrates every attempt it abandons there,
-# so a call that succeeds on the second try still writes a `curl: (22) ...` line — merging the
-# two streams put that text in front of the URL and made a successful upload look like a bad
-# reply. Read the diagnostic from here instead, only when the exit status says to.
+# `--retry` narrates every attempt it abandons on stderr, so stderr goes to its own file and is
+# read only when the exit status says the call failed.
 curl_stderr="$(mktemp)"
-trap 'rm -f "$curl_stderr"' EXIT
+reply="$(mktemp)"
+trap 'rm -f "$curl_stderr" "$reply"' EXIT
 
 # A GitHub annotation is a single line, so a multi-line complaint is collapsed rather than
 # truncated at the first newline.
@@ -24,79 +23,62 @@ one_line() {
 }
 
 fail_soft() {
-  printf '::warning::%s\n' "$1"
-  {
-    printf 'url=\n'
-    printf 'expires=\n'
-  } >>"$GITHUB_OUTPUT"
+  printf '::warning::%s The comment will be posted without the image.\n' "$1"
+  printf 'url=\n' >>"$GITHUB_OUTPUT"
   exit 0
 }
 
 if [[ ! -f "$svg" ]]; then
   fail_soft "No grid map at ${svg}; nothing to publish."
 fi
-
-if [[ -n "$userhash" ]]; then
-  backend='Catbox'
-  endpoint='https://catbox.moe/user/api.php'
-  retention=''
-  upload_form=(--form "userhash=${userhash}")
-  url_prefix='https://files.catbox.moe/'
-else
-  backend='Litterbox'
-  endpoint='https://litterbox.catbox.moe/resources/internals/api.php'
-  retention='72h'
-  upload_form=(--form "time=${retention}")
-  url_prefix='https://litter'
+if [[ -z "$token" ]]; then
+  fail_soft 'No attachment-token is set, so the grid map cannot be uploaded.'
+fi
+if [[ -z "$repository_id" ]]; then
+  fail_soft 'The event payload carries no repository id to upload the grid map against.'
 fi
 
-if ! response=$(curl --silent --show-error --fail \
+# The token goes in through stdin, never argv, so no process listing on the runner shows it.
+if ! status=$(curl --silent --show-error \
   --retry 3 --retry-delay 2 --max-time 120 \
-  --form reqtype=fileupload \
-  "${upload_form[@]}" \
-  --form "fileToUpload=@${svg}" \
-  "$endpoint" 2>"$curl_stderr"); then
-  fail_soft "Grid map upload failed: $(one_line "$curl_stderr"). The comment will be posted without the image."
+  --request POST \
+  --header @- \
+  --header 'Accept: application/vnd.github+json' \
+  --header 'Content-Type: application/octet-stream' \
+  --data-binary "@${svg}" \
+  --output "$reply" \
+  --write-out '%{http_code}' \
+  "https://uploads.github.com/user-attachments/assets?name=grid-map.svg&content_type=image%2Fsvg%2Bxml&repository_id=${repository_id}" \
+  2>"$curl_stderr" <<<"Authorization: Bearer ${token}"); then
+  fail_soft "Grid map upload failed: $(one_line "$curl_stderr")."
 fi
 
-# Trim surrounding whitespace before the prefix check below: a host answering with a leading
-# newline would otherwise be read as the wrong host and a good upload thrown away again.
-response="${response#"${response%%[![:space:]]*}"}"
-response="${response%"${response##*[![:space:]]}"}"
-
-if [[ "$response" != "$url_prefix"* ]]; then
-  hint=''
-  if [[ -n "$userhash" ]]; then
-    hint=' Check the catbox-userhash input — an unrecognised hash is refused here.'
-  fi
-  fail_soft "Unexpected response from ${backend}: ${response}.${hint} The comment will be posted without the image."
-fi
-
-# Keep this check: camo serves image/* and refuses everything else, so a host that labels the
-# upload application/octet-stream would give every comment a broken image (ADR-0002).
-if ! content_type=$(curl --silent --show-error --fail --location --head \
-  --max-time 30 --write-out '%{content_type}' --output /dev/null "$response" 2>"$curl_stderr"); then
-  fail_soft "Could not read the Content-Type of ${response}: $(one_line "$curl_stderr"). The comment will be posted without the image."
-fi
-
-case "$content_type" in
-  image/*) ;;
+case "$status" in
+  201) ;;
+  401)
+    fail_soft 'GitHub rejected attachment-token (HTTP 401). It is invalid, expired or revoked.'
+    ;;
+  404)
+    # The endpoint answers 404, not 403, when the token cannot write to the repository.
+    fail_soft 'GitHub refused the upload (HTTP 404). attachment-token must be a personal access token whose owner has write access to this repository, and a fine-grained one needs "Pull requests: Read and write" on it; GITHUB_TOKEN and GitHub App tokens are always refused.'
+    ;;
   *)
-    fail_soft "${backend} served ${response} as '${content_type}' rather than an image type. GitHub's camo proxy would refuse it, so the comment will be posted without the image."
+    fail_soft "GitHub refused the upload (HTTP ${status}): $(one_line "$reply")."
     ;;
 esac
 
-{
-  printf 'url=%s\n' "$response"
-  printf 'expires=%s\n' "$retention"
-  printf 'content-type=%s\n' "$content_type"
-} >>"$GITHUB_OUTPUT"
-
-if [[ -n "$retention" ]]; then
-  lifetime="It expires ${retention} after this run."
-else
-  lifetime='It does not expire.'
+# Anything but an HTTPS asset URL on github.com would embed something we did not upload.
+if ! url=$(node -e '
+  const { url } = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+  const parsed = new URL(url)
+  if (parsed.protocol !== "https:" || parsed.host !== "github.com" ||
+      !/^\/user-attachments\/assets\/[^/]+$/.test(parsed.pathname) || parsed.search || parsed.hash) {
+    process.exit(1)
+  }
+  process.stdout.write(parsed.href)
+' "$reply" 2>/dev/null); then
+  fail_soft "Unexpected reply from the upload endpoint: $(one_line "$reply")."
 fi
 
-printf '::notice::Grid map published at %s (%s) — this URL is public and world-readable by anyone who has it, including the package tree and per-package coverage of a private repository. %s Set publish-image: false to opt out.\n' \
-  "$response" "$content_type" "$lifetime"
+printf 'url=%s\n' "$url" >>"$GITHUB_OUTPUT"
+printf '::notice::Grid map uploaded to %s. GitHub shows it to whoever can read this repository.\n' "$url"

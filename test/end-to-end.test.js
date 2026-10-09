@@ -238,7 +238,7 @@ test('the comment is created on a pull request, carrying the published grid map'
         BASE_BRANCH: 'main',
         CURRENT_BREAKDOWN_PATH: path.join(FIXTURES, 'sample-breakdown.txt'),
         BASE_BREAKDOWN_PATH: path.join(ws.dir, 'missing.txt'),
-        IMAGE_URL: 'https://litter.catbox.moe/zzz999.svg',
+        IMAGE_URL: 'https://github.com/user-attachments/assets/zzz999',
       },
       ws.dir,
     )
@@ -247,7 +247,7 @@ test('the comment is created on a pull request, carrying the published grid map'
     assert.match(posted, /^<!-- go-covergrid:grid-map -->/)
     assert.match(posted, /✅ \*\*Coverage gate passed\*\*/)
     assert.match(posted, /\*\*Total coverage:\*\* .* 76\.8%/)
-    assert.match(posted, /!\[Coverage Grid Map\]\(https:\/\/litter\.catbox\.moe\/zzz999\.svg\)/)
+    assert.match(posted, /!\[Coverage Grid Map\]\(https:\/\/github\.com\/user-attachments\/assets\/zzz999\)/)
     assert.ok(!posted.includes('Coverage Diff'), 'no baseline means no diff summary')
 
     assert.strictEqual(ws.outputs()['comment-id'], '4001')
@@ -375,7 +375,7 @@ test('the full comparison path renders a diff summary from two breakdown files',
         BASE_BRANCH: 'main',
         CURRENT_BREAKDOWN_PATH: path.join(FIXTURES, 'sample-breakdown.txt'),
         BASE_BREAKDOWN_PATH: baseline,
-        IMAGE_URL: 'https://litter.catbox.moe/a.svg',
+        IMAGE_URL: 'https://github.com/user-attachments/assets/a',
       },
       ws.dir,
     )
