@@ -42,8 +42,9 @@ inputs:
   attachment-token:
     description: >-
       Personal access token used to upload the Grid Map to GitHub so the comment can show it.
-      Its owner needs write access to the repository. GITHUB_TOKEN and GitHub App tokens cannot
-      upload. Without it the comment is posted without the picture.
+      Its owner needs write access to the repository. A fine-grained token needs only
+      "Pull requests: Read and write" on the repository. GITHUB_TOKEN and GitHub App tokens
+      cannot upload. Without it the comment is posted without the picture.
     required: false
     default: ''
   fail-on-gate:

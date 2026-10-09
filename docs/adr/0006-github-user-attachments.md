@@ -29,7 +29,9 @@ third-party host, which had become unreliable.
 with `404`, whatever their permissions. We measured this on draft PR #11, and GitHub
 [confirmed it as intended](https://github.com/cli/cli/issues/14309). It also answers `404` to a
 personal token whose owner lacks write access ([cli/cli#14302](https://github.com/cli/cli/issues/14302)).
-So the action takes an `attachment-token` input, and the upload is attributed to that token's owner.
+A fine-grained token scoped to the repository needs only "Pull requests: Read and write", which the
+maintainer verified on another repository; a classic token needs `repo`. So the action takes an
+`attachment-token` input, and the upload is attributed to that token's owner.
 Only the upload uses it. The comment is still posted with `github-token`, and the picture renders in
 a comment authored by `github-actions[bot]`.
 

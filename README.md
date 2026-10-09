@@ -15,8 +15,9 @@ somewhere first. The action uploads it to GitHub itself, the same way drag-and-d
 does. GitHub then shows it only to people who can read the repository, and it doesn't expire.
 
 That upload refuses `GITHUB_TOKEN` and GitHub App tokens. It needs a personal access token whose owner
-has write access to the repository. A classic token with the `repo` scope works; the endpoint accepts
-fine-grained tokens too. Store it as a secret and pass it in:
+has write access to the repository: either a fine-grained token scoped to the repository with
+**Pull requests: Read and write** and nothing else, or a classic token with the `repo` scope. Store it
+as a secret and pass it in:
 
 ```yaml
 - uses: gringolito/go-covergrid@v1

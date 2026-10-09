@@ -60,7 +60,7 @@ case "$status" in
     ;;
   404)
     # The endpoint answers 404, not 403, when the token cannot write to the repository.
-    fail_soft 'GitHub refused the upload (HTTP 404). attachment-token must be a personal access token whose owner has write access to this repository; GITHUB_TOKEN and GitHub App tokens are always refused.'
+    fail_soft 'GitHub refused the upload (HTTP 404). attachment-token must be a personal access token whose owner has write access to this repository, and a fine-grained one needs "Pull requests: Read and write" on it; GITHUB_TOKEN and GitHub App tokens are always refused.'
     ;;
   *)
     fail_soft "GitHub refused the upload (HTTP ${status}): $(one_line "$reply")."
