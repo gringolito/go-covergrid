@@ -41,9 +41,9 @@ inputs:
     default: '-101'
   attachment-token:
     description: >-
-      Personal access token for uploading the Grid Map image. Fine-grained: scoped to the
-      repository with "Pull requests: Read and write". Classic: the repo scope. GITHUB_TOKEN and
-      GitHub App tokens are rejected. If empty, the comment has no image.
+      Optional. Personal access token for uploading the Grid Map image. Fine-grained: scoped to
+      the repository with "Pull requests: Read and write". Classic: the repo scope. GITHUB_TOKEN
+      and GitHub App tokens are rejected.
     required: false
     default: ''
   fail-on-gate:

@@ -30,8 +30,8 @@ The token's owner must have write access to the repository. Store the token as a
 The token is used only for the upload, which is attributed to its owner. `github-token` still posts the
 comment.
 
-Without `attachment-token`, or on pull requests from forks (which get no secrets), the comment is
-posted without the image.
+Without `attachment-token`, the comment is posted without the image. Pull requests from forks get no
+secrets, so they never upload; their read-only `GITHUB_TOKEN` can't post the comment either.
 
 ## Isn't this go-cover-treemap?
 
