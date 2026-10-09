@@ -1,8 +1,9 @@
 # Publish the Grid Map image to public hosting, accepting the disclosure
 
-Superseded by [ADR-0006](./0006-github-user-attachments.md), which hosts the Grid Map on GitHub. The
-sanitizer findings and the document requirements below still apply; the host and the disclosure no
-longer do.
+> [!IMPORTANT]
+> Superseded by [ADR-0006](./0006-github-user-attachments.md), which hosts the Grid Map on GitHub. The
+> sanitizer findings and the document requirements below still apply; the host and the disclosure no
+> longer do.
 
 GitHub's comment sanitizer strips inline `<svg>`, forbids `<style>` and `style=`, and allowlists URI
 **schemes** on `img src` — so no `data:` URI either, whatever the payload. Every image that does render
