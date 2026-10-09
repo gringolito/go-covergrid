@@ -2,9 +2,9 @@
 
 // Entry point: find the run whose artifacts hold the Baseline.
 //
-// Writes `run-id` — empty when the base branch has no successful run yet, which is the
-// normal state on a repository's first run. A lookup failure is downgraded to a warning
-// and an empty run id, because losing the comparison is much better than failing the job.
+// Writes `run-id`, empty when the base branch has no successful run yet. That is the
+// normal state on a repository's first run. A lookup failure becomes a warning and an
+// empty run id, because losing the comparison is better than failing the job.
 
 const { createClient } = require('./github.js')
 const { setOutput, warning, workflowFileFromRef } = require('./workflow.js')

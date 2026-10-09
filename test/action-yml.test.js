@@ -121,7 +121,7 @@ test('every declared output is wired to a step output', () => {
 })
 
 // Slices one input's block, ending at the next key at the same indent, so a longer
-// description cannot silently push the `default:` out of a fixed-size window.
+// description cannot push the `default:` out of a fixed-size window.
 function inputBlock(name) {
   const start = TEXT.indexOf(`  ${name}:`)
   assert.notStrictEqual(start, -1, `no input named ${name}`)

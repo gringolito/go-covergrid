@@ -2,9 +2,9 @@
 
 Go coverage in one PR comment, drawn as a grid map: tiles sized by statements, coloured by coverage.
 
-It runs a coverage gate, then turns the result into a **Grid Map** — a proportionally-sized,
-coverage-coloured picture of where a repository's tests are and aren't — and posts one pull request
-comment carrying the gate result, the picture, and the change since the base branch.
+The action runs a coverage gate, renders the result as a **Grid Map**, and posts one pull request
+comment with the gate result, the picture, and the change since the base branch. The Grid Map shows
+where the repository's tests are and aren't. Each tile's area is proportional to its statement count.
 
 ![Grid Map](docs/example-grid-map.svg)
 
@@ -14,10 +14,10 @@ GitHub comments can't embed an SVG directly, so the action uploads the Grid Map 
 the same as dragging an image into a comment. Only people who can read the repository can see it, and
 it doesn't expire.
 
-The upload needs a personal access token. `GITHUB_TOKEN` and GitHub App tokens are rejected. Use either:
+The upload needs a personal access token. `GITHUB_TOKEN` and GitHub App tokens are rejected. Use one of:
 
-- a **fine-grained token** scoped to the repository with `Pull requests: Read and write`, or
-- a **classic token** with the `repo` scope.
+- a **fine-grained token** scoped to the repository with `Pull requests: Read and write`
+- a **classic token** with the `repo` scope
 
 The token's owner must have write access to the repository. Store the token as a secret:
 
@@ -31,24 +31,23 @@ The token is used only for the upload, which is attributed to its owner. `github
 comment.
 
 Without `attachment-token`, the comment is posted without the image. Pull requests from forks get no
-secrets, so they never upload; their read-only `GITHUB_TOKEN` can't post the comment either.
+secrets, so they never upload. Their read-only `GITHUB_TOKEN` can't post the comment either.
 
-## Isn't this go-cover-treemap?
+## How this differs from go-cover-treemap
 
-Partly, and [nikolaydubina/go-cover-treemap](https://github.com/nikolaydubina/go-cover-treemap) got
-there first. It's a CLI: feed it a coverage profile, get an SVG treemap. If that's what you want, use
-it — it's good, it's had far more eyes on it, and it nests packages where this doesn't.
+[nikolaydubina/go-cover-treemap](https://github.com/nikolaydubina/go-cover-treemap) came first. It is a
+CLI that turns a coverage profile into an SVG treemap, and it nests packages where this action doesn't.
+If you only want the picture, use it.
 
-The difference is scope. go-cover-treemap draws a picture and hands it to you. This runs the gate,
-remembers the base branch's coverage as a baseline, reports what your PR changed, and keeps one comment
-updated in place. The picture is one section of that comment.
+This action does more around the picture. It runs the gate, stores the base branch's coverage as a
+baseline, reports what your PR changed, and keeps one comment updated in place. The picture is one
+section of that comment.
 
-If nesting is what you're after, that's a real reason to prefer the other one — see
-[ADR-0004](docs/adr/0004-grid-map-geometry.md) for why this is flat.
+For why the layout here is flat, see [ADR-0004](docs/adr/0004-grid-map-geometry.md).
 
 ## Usage
 
-A complete workflow. Save it as `.github/workflows/ci.yml` and it works as-is:
+This workflow works as-is. Save it as `.github/workflows/ci.yml`:
 
 ```yaml
 name: CI
@@ -81,32 +80,31 @@ jobs:
           attachment-token: ${{ secrets.COVERGRID_ATTACHMENT_TOKEN }}
 ```
 
-Name the file whatever you like — the baseline lookup finds the workflow it is running in on its own.
-One thing in there is easy to get wrong, though, and it fails quietly rather than loudly.
+The file name doesn't matter. The baseline lookup finds the workflow it runs in.
 
-**The `push` trigger is not optional.** The baseline is the breakdown file from the most recent
-successful run of this workflow *on the base branch*, so a workflow that only runs on `pull_request`
-never produces one. Coverage still gates and the grid map still renders — you just never get the
-comparison against `main`, on any PR, forever.
+**The `push` trigger is required.** The baseline is the breakdown file from the most recent successful
+run of this workflow on the base branch. A workflow that only runs on `pull_request` never produces one.
+Nothing fails. The gate still runs and the Grid Map still renders, but no PR ever shows a comparison
+against `main`.
 
-The permissions block is load bearing too, and the action cannot request any of it on your behalf.
-Note that `pull_request` runs triggered from a **fork** get a read-only token no matter what you put
-there, so the comment can't be posted on those; that's GitHub's rule, not this action's.
+The `permissions` block is required, and the action can't request permissions for you. Runs triggered
+by `pull_request` from a **fork** get a read-only token regardless of this block, so the comment can't
+be posted there. That is a GitHub rule.
 
-A first run on a repository has no baseline yet by definition, so the comment arrives without the diff
-section. That's expected, not a misconfiguration; the second PR after a merge to `main` gets one.
+The first run on a repository has no baseline, so its comment has no diff section. This is expected.
+The second PR after a merge to `main` gets one.
 
 ### Inputs
 
 | Input | Default | What it does |
 | --- | --- | --- |
-| `profile` | `cover.out` | The coverage profile from `go test -coverprofile`. Handed straight to the gate; nothing here parses it. |
-| `config` | — | Path to your `.testcoverage.yml`. Without one the gate has no thresholds and always passes. |
-| `github-token` | `${{ github.token }}` | Used for the baseline lookup, the artifact download and the comment. |
+| `profile` | `cover.out` | Coverage profile from `go test -coverprofile`. Passed to the gate. The action doesn't parse it. |
+| `config` | none | Path to your `.testcoverage.yml`. Without one the gate has no thresholds and always passes. |
+| `github-token` | `${{ github.token }}` | Used for the baseline lookup, the artifact download, and the comment. |
 | `base-branch` | the repository default branch | Where the baseline comes from. |
 | `breakdown-artifact` | `coverage-breakdown` | Artifact name for the breakdown file. Changing it orphans every existing baseline. |
 | `diff-threshold` | `-101` | Minimum allowed change in total coverage, in percentage points. `-101` disables it. |
-| `attachment-token` | — | Personal access token for uploading the Grid Map image. See [Grid Map image](#grid-map-image-attachment-token). |
+| `attachment-token` | none | Personal access token for uploading the Grid Map image. See [Grid Map image](#grid-map-image-attachment-token). |
 | `fail-on-gate` | `true` | Fail the job when the gate fails. The comment is posted either way. |
 
 ### Outputs
@@ -114,18 +112,18 @@ section. That's expected, not a misconfiguration; the second PR after a merge to
 `total-coverage`, `total-statements`, `covered-statements`, `package-count`, `grid-map-path`,
 `grid-map-url`, `gate-outcome`.
 
-## How to read a Grid Map
+## Reading a Grid Map
 
-Every package is one tile. A tile's **area** is its statement count, so the big tiles are the code
-you have a lot of. A tile's **colour** is its coverage band: red below 50%, orange to 70, yellow to
-85, light green to 95, dark green above. Because area is statements and colour is coverage, the
-coloured proportion of the picture *is* the repository's overall coverage.
+Each package is one tile. Tile **area** is the package's statement count, so big tiles are big
+packages. Tile **colour** is the coverage band: red below 50%, orange to 70%, yellow to 85%, light green
+to 95%, dark green above. Area is statements and colour is coverage, so the coloured share of the
+picture is the repository's overall coverage.
 
 ## Where the numbers come from
 
-Everything — the Grid Map, the total, the diff summary, the impacted tables — is computed from
-[go-test-coverage](https://github.com/vladopajic/go-test-coverage)'s breakdown files, which the
-embedded gate step writes.
+Every number is computed from the breakdown files that the embedded
+[go-test-coverage](https://github.com/vladopajic/go-test-coverage) gate step writes. That covers the
+Grid Map, the total, the diff summary, and the impacted tables.
 
 ## Example `.testcoverage.yml`
 
@@ -142,37 +140,45 @@ exclude:
 ```
 
 The gate annotates absolute-threshold violations inline on the Files changed tab, so the comment
-doesn't repeat them. The one failure with no inline equivalent is a drop past `diff-threshold` —
-there's no line to annotate — so the comment names that one explicitly, with numbers.
+doesn't repeat them. A drop past `diff-threshold` has no line to annotate, so the comment reports that
+one with numbers.
 
 ## Development
 
-No dependencies, no build step, no `node_modules`. Tests are `node:test`:
+There are no dependencies and no build step. Tests use `node:test`:
 
 ```bash
 node --test test/*.test.js
 ```
 
-To look at a Grid Map without running anything on GitHub:
+To render a Grid Map locally:
 
 ```bash
 node src/render-gridmap.js test/fixtures/sample-breakdown.txt /tmp/grid-map.svg
 ```
 
-The picture at the top of this file is rendered from the same fixture and committed, so a change to
-the renderer leaves it stale. CI fails when it is, and regenerating is the same command with a
-different destination:
+The picture at the top of this file is rendered from the same fixture and committed. A renderer change
+makes it stale, and CI fails when it is. Regenerate it with the same command and a different
+destination:
 
 ```bash
 node src/render-gridmap.js test/fixtures/sample-breakdown.txt docs/example-grid-map.svg
 ```
 
-Layout regressions are invisible in unit tests and obvious in an image, so open the SVG. There are
-two fixtures: `sample-breakdown.txt` (18 packages, real statement counts under invented package names)
-and `big-breakdown.txt` (120 packages, fully synthetic, for watching the layout degrade). Both are
-regenerated with `node test/fixtures/make-breakdown.js test/fixtures/cover.out sample-breakdown.txt`,
-which stands in for
-go-test-coverage. That generator is test tooling and nothing in `src/` may import it.
+Unit tests don't catch layout regressions, but an image does, so open the SVG after layout changes.
+There are two fixtures:
 
-The renderer never touches the network. Uploading and comment posting are separate scripts, because
-the upload needs a personal token and the renderer has to stay testable without one.
+- `sample-breakdown.txt` has 18 packages with real statement counts under invented names.
+- `big-breakdown.txt` has 120 synthetic packages, for watching the layout degrade.
+
+Regenerate them with the generator, which stands in for go-test-coverage:
+
+```bash
+node test/fixtures/make-breakdown.js test/fixtures/cover.out sample-breakdown.txt
+node test/fixtures/make-breakdown.js test/fixtures/big.out big-breakdown.txt
+```
+
+The generator is test tooling, and nothing in `src/` may import it.
+
+The renderer never touches the network. Upload and comment posting are separate scripts, because the
+upload needs a personal token and the renderer must stay testable without one.

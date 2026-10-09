@@ -32,8 +32,8 @@ function client(responses, options = {}) {
   }
 }
 
-// A 403 is the one status the callers treat specially — it means a missing `permissions:` key
-// rather than a bug — so the status has to survive on the error and not only inside its message.
+// A 403 is the one status the callers treat specially. It means a missing `permissions:` key
+// rather than a bug, so the status has to survive on the error and not only inside its message.
 test('a failed request carries the status code on the error', async () => {
   const { api } = client([{ status: 403, body: { message: 'Resource not accessible by integration' } }])
 

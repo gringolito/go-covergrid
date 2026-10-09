@@ -27,8 +27,8 @@ test('the workflow file is derived from GITHUB_WORKFLOW_REF', () => {
 })
 
 // Branch names may contain '@', so the split has to take the first one. Getting this
-// backwards yields a file name with half a ref glued to it, and the runs API then quietly
-// matches nothing — which looks exactly like "no baseline yet".
+// backwards yields a file name with half a ref glued to it, and the runs API then
+// matches nothing, which looks exactly like "no baseline yet".
 test('a branch name containing @ does not corrupt the file name', () => {
   assert.strictEqual(
     workflowFileFromRef('acme/parcel/.github/workflows/ci.yml@refs/heads/feat/user@host'),

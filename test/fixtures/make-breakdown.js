@@ -10,7 +10,7 @@
 //   node test/fixtures/make-breakdown.js big.out big-breakdown.txt
 //
 // Block identity is `file:startLine.startCol,endLine.endCol`, not `file:startLine:endLine`:
-// one source line can hold two distinct blocks, so the coarser key silently drops some.
+// one source line can hold two distinct blocks, so the coarser key drops some.
 
 const fs = require('node:fs')
 const path = require('node:path')

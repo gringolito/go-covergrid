@@ -40,8 +40,8 @@ function createClient({ token, repository, apiUrl = 'https://api.github.com', fe
     const text = await response.text()
     if (!response.ok) {
       const err = new Error(`GitHub API ${method} ${url} failed with ${response.status}: ${text.slice(0, 500)}`)
-      // Callers key off this: a 403 is almost always a missing `permissions:` key, and earns
-      // a better message than a stack trace.
+      // Callers key off this: a 403 is almost always a missing `permissions:` key, and needs
+      // a clearer message than a stack trace.
       err.status = response.status
       throw err
     }
@@ -68,7 +68,7 @@ function createClient({ token, repository, apiUrl = 'https://api.github.com', fe
 
   /**
    * Posts the comment, or edits the existing one carrying the marker. One comment per pull
-   * request, updated in place, so a busy PR does not accumulate a wall of coverage reports.
+   * request, updated in place, so a busy PR does not accumulate coverage reports.
    */
   async function upsertComment({ prNumber, marker, body }) {
     const comments = await paginate(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
