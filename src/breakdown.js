@@ -4,8 +4,8 @@
 //
 // A Breakdown File is vladopajic/go-test-coverage's machine-readable output: one line
 // per Go source file, `path;totalStatements;coveredStatements`. It is the single source
-// of every number this action reports. Nothing here parses a Coverage Profile — see
-// docs/adr/0001-read-breakdown-files-not-the-profile.md for why that matters.
+// of every number this action reports. Nothing here parses a Coverage Profile. See
+// docs/adr/0001-read-breakdown-files-not-the-profile.md for why.
 //
 // The Gate's `report` output is human-formatted prose and must never be parsed.
 
@@ -104,7 +104,7 @@ function round2(n) {
  *
  * Mirrors go-test-coverage's `calculateStatsDiff`, including its quirk: an entry that is
  * now fully covered is excluded even if it previously had uncovered Statements. That is
- * upstream behaviour, replicated deliberately so our numbers agree with the Gate's.
+ * upstream behaviour, replicated so our numbers agree with the Gate's.
  *
  * @param {Stat[]} current
  * @param {Stat[]} base

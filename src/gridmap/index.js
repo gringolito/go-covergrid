@@ -16,9 +16,9 @@ const { squarify } = require('./treemap.js')
  */
 const CANVAS_WIDTH = 830
 const BASE_HEIGHT = 467
-/** Beyond this the picture is a ribbon nobody scrolls; tiny Tiles are chips either way. */
+/** Beyond this the picture is a thin strip nobody scrolls; tiny Tiles are chips either way. */
 const MAX_HEIGHT = 1245
-/** Package count the base height comfortably labels. */
+/** Package count the base height labels without crowding. */
 const ROOMY_PACKAGE_COUNT = 24
 const HEIGHT_PER_EXTRA_PACKAGE = 6
 

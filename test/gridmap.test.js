@@ -24,7 +24,7 @@ const fixture = (name) => parseBreakdown(fs.readFileSync(path.join(FIXTURES, nam
 const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ attrs: m[1], body: m[2] }))
 
 // ADR-0004: the coordinate space is GitHub's comment content width, so a font-size in this
-// source is the size the reader actually sees.
+// source is the size the reader sees.
 test('the canvas width is GitHub comment width, not an arbitrary larger number', () => {
   assert.strictEqual(CANVAS_WIDTH, 830)
 })
@@ -40,7 +40,7 @@ test('height starts at 467 and grows with package count', () => {
 
 test('height is capped so a huge repository does not produce an unusable strip', () => {
   assert.strictEqual(gridMapHeight(10000), MAX_HEIGHT)
-  assert.ok(MAX_HEIGHT / CANVAS_WIDTH <= 1.6, 'the picture must not become a ribbon')
+  assert.ok(MAX_HEIGHT / CANVAS_WIDTH <= 1.6, 'the picture must not become a thin strip')
 })
 
 test('commonPathPrefix returns the shared module path, ending at a slash', () => {
@@ -145,7 +145,7 @@ test('no text is wider than the tile it sits in', () => {
   }
 })
 
-test('a package path is clipped to its own tile, so nothing can bleed into a neighbour', () => {
+test('a package path is clipped to its own tile, so nothing can spill into a neighbour', () => {
   const { svg, tiles } = renderGridMap({ stats: fixture('sample-breakdown.txt') })
   const clips = [...svg.matchAll(/<clipPath id="([^"]+)">/g)].map((m) => m[1])
   assert.ok(clips.length > 0)

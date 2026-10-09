@@ -30,8 +30,8 @@ function shellQuote(value) {
  * @param {object} opts
  * @param {string} [opts.reply] the response body the upload call writes to its --output file
  * @param {string} [opts.status] the HTTP status the upload call reports through --write-out
- * @param {string} [opts.stderr] what the upload call writes to stderr; `--retry` narrates
- *   every attempt it makes there, so a call that succeeds on its second try still says plenty
+ * @param {string} [opts.stderr] what the upload call writes to stderr; `--retry` logs
+ *   every attempt it makes there, so a call that succeeds on its second try still prints plenty
  * @param {number} [opts.exit] non-zero to simulate a call that never got an answer
  * @param {Record<string,string>} [opts.env] environment overriding the defaults below
  */
@@ -133,7 +133,7 @@ test('without a repository id it uploads nothing', async () => {
 })
 
 // GITHUB_TOKEN is the token people will try first, and the endpoint answers it with a bare
-// 404 — the same answer a read-only personal token gets. The warning has to name the cause.
+// 404, the same answer a read-only personal token gets. The warning has to name the cause.
 test('a 404 explains that the token needs a person with write access', async () => {
   const { stdout, outputs } = await run({ status: '404', reply: '{"message":"Not Found"}' })
   assert.match(stdout, /^::warning::GitHub refused the upload \(HTTP 404\)/m)
@@ -173,7 +173,7 @@ test('a 201 without an asset URL degrades instead of publishing garbage', async 
   }
 })
 
-// A retried call narrates the attempt it gave up on to stderr before the one that worked
+// A retried call logs the attempt it gave up on to stderr before the one that worked
 // answers. That noise must not turn a good upload into a failure.
 test('a retry that eventually succeeds is published', async () => {
   const { stdout, outputs } = await run({

@@ -1,6 +1,6 @@
 'use strict'
 
-// The two per-cent of `@actions/core` this action needs. `@actions/core` is an npm
+// The two parts of `@actions/core` this action needs. `@actions/core` is an npm
 // package and there are no runtime dependencies (ADR-0003), so step outputs are appended
 // to `$GITHUB_OUTPUT` and annotations are written as raw workflow commands.
 

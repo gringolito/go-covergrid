@@ -1,15 +1,15 @@
 'use strict'
 
-// Renders the pull request comment body. Pure string building — no GitHub API calls, no
-// filesystem, no network — so the whole comment can be diffed in tests.
+// Renders the pull request comment body. Pure string building: no GitHub API calls, no
+// filesystem, no network. The whole comment can be diffed in tests.
 //
 // Counts are Statements, never lines: that is what the go toolchain measures, and
 // CONTEXT.md bans the word.
 //
 // The Gate's inline annotations already report absolute-threshold violations on the Files
 // changed tab, so this does not re-derive its three-way file/package/total verdict. The one
-// failure with no annotation equivalent is the diff-vs-baseline threshold — there is no line
-// to annotate — so that case is named explicitly, with numbers.
+// failure with no annotation equivalent is the diff-vs-baseline threshold. There is no line
+// to annotate, so that case is named explicitly, with numbers.
 
 const {
   aggregateByPackage,
@@ -22,7 +22,7 @@ const {
 } = require('./breakdown.js')
 
 const MARKER = '<!-- go-covergrid:grid-map -->'
-const HEADING = '## [go-covergrid](https://github.com/gringolito/go-covergrid) — Coverage Report'
+const HEADING = '## [go-covergrid](https://github.com/gringolito/go-covergrid): Coverage Report'
 const BAR_WIDTH = 10
 
 function bar(ratio) {
@@ -179,7 +179,7 @@ function gateStatusLine({ outcome, diffThreshold, hasBaseline, totalDiff, baseBr
   }
 
   if (outcome === 'failure') {
-    return '❌ **Coverage gate failed** — see inline annotations on the Files changed tab for details.'
+    return '❌ **Coverage gate failed**. See inline annotations on the Files changed tab for details.'
   }
 
   return '✅ **Coverage gate passed**'
@@ -191,7 +191,7 @@ function gateStatusLine({ outcome, diffThreshold, hasBaseline, totalDiff, baseBr
  */
 function gridMapSection(imageUrl) {
   if (!imageUrl) {
-    return '_Grid map not published for this run. Set `attachment-token` to show it here; if it is set, the upload failed — check the job log._'
+    return '_Grid map not published for this run. Set `attachment-token` to show it here. If it is set, the upload failed: check the job log._'
   }
 
   return `![Coverage Grid Map](${imageUrl})`
@@ -271,7 +271,7 @@ function renderComment({
 }
 
 /**
- * Posted when the Breakdown File is missing, so the comment does not silently vanish on
+ * Posted when the Breakdown File is missing, so the comment does not vanish on
  * the one run where something went wrong.
  *
  * @param {string} [breakdownPath]

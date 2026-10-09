@@ -3,7 +3,7 @@
 // Coverage Bands: the five fixed ranges a Coverage Ratio falls into, and the only thing
 // that determines a Tile's colour.
 //
-// The boundaries are conventional and not configurable. They are deliberately not fitted
+// The boundaries are conventional and not configurable. They are not fitted
 // to any repository's distribution: a project whose Packages all reach the top Band should
 // render as a solid block of green, because that is the true picture (ADR-0004).
 

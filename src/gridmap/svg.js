@@ -69,8 +69,8 @@ function document({ width, height, title, children }) {
 
 /**
  * A minimal well-formedness check: balanced elements, quoted attributes, no stray markup.
- * Not a parser — enough to fail loudly if the renderer ever emits something a browser
- * would refuse, which is invisible in a string comparison.
+ * Not a parser. It exists to fail loudly if the renderer emits something a browser
+ * would refuse, which a string comparison cannot show.
  *
  * @param {string} markup
  * @returns {{ ok: true } | { ok: false, reason: string }}

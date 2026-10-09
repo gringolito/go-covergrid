@@ -10,7 +10,7 @@ svg="${1:?usage: publish-image.sh <file.svg>}"
 token="${ATTACHMENT_TOKEN:-}"
 repository_id="${REPOSITORY_ID:-}"
 
-# `--retry` narrates every attempt it abandons on stderr, so stderr goes to its own file and is
+# `--retry` logs every attempt it abandons on stderr, so stderr goes to its own file and is
 # read only when the exit status says the call failed.
 curl_stderr="$(mktemp)"
 reply="$(mktemp)"
