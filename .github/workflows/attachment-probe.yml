@@ -1,0 +1,38 @@
+name: attachment-probe
+
+on:
+  pull_request:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Upload with GITHUB_TOKEN
+        env:
+          TOKEN: ${{ github.token }}
+          REPO_ID: ${{ github.event.repository.id }}
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          for ct in image/svg+xml; do
+            code=$(curl -s -o resp.json -w '%{http_code}' \
+              "https://uploads.github.com/user-attachments/assets?name=grid-map.svg&content_type=image%2Fsvg%2Bxml&repository_id=${REPO_ID}" \
+              -X POST -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/json" \
+              -H "Content-Type: application/octet-stream" --data-binary @docs/example-grid-map.svg)
+            echo "bearer GITHUB_TOKEN -> HTTP ${code}"; cat resp.json; echo
+            code=$(curl -s -o resp2.json -w '%{http_code}' \
+              "https://uploads.github.com/user-attachments/assets?name=grid-map.svg&content_type=image%2Fsvg%2Bxml&repository_id=${REPO_ID}" \
+              -X POST -H "Authorization: token ${TOKEN}" -H "Accept: application/json" \
+              -H "Content-Type: application/octet-stream" --data-binary @docs/example-grid-map.svg)
+            echo "token-scheme GITHUB_TOKEN -> HTTP ${code}"; cat resp2.json; echo
+          done
+          url=$(jq -r '.url // empty' resp.json)
+          if [[ -n "$url" ]]; then
+            gh pr comment "$PR" --body "probe via GITHUB_TOKEN: ![grid map](${url})"
+          fi
