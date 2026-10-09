@@ -8,16 +8,18 @@ comment carrying the gate result, the picture, and the change since the base bra
 
 ![Grid Map](docs/example-grid-map.svg)
 
-## Showing the picture: `attachment-token`
+## Grid Map image: `attachment-token`
 
-GitHub won't render an `<svg>` or a `data:` URI inside a comment, so the Grid Map has to be uploaded
-somewhere first. The action uploads it to GitHub itself, the same way drag-and-drop into a comment
-does. GitHub then shows it only to people who can read the repository, and it doesn't expire.
+GitHub comments can't embed an SVG directly, so the action uploads the Grid Map as a GitHub attachment,
+the same as dragging an image into a comment. Only people who can read the repository can see it, and
+it doesn't expire.
 
-That upload refuses `GITHUB_TOKEN` and GitHub App tokens. It needs a personal access token whose owner
-has write access to the repository: either a fine-grained token scoped to the repository with
-**Pull requests: Read and write** and nothing else, or a classic token with the `repo` scope. Store it
-as a secret and pass it in:
+The upload needs a personal access token. `GITHUB_TOKEN` and GitHub App tokens are rejected. Use either:
+
+- a **fine-grained token** scoped to the repository with `Pull requests: Read and write`, or
+- a **classic token** with the `repo` scope.
+
+The token's owner must have write access to the repository. Store the token as a secret:
 
 ```yaml
 - uses: gringolito/go-covergrid@v1
@@ -25,10 +27,11 @@ as a secret and pass it in:
     attachment-token: ${{ secrets.COVERGRID_ATTACHMENT_TOKEN }}
 ```
 
-The upload is attributed to the token's owner. The comment itself is still posted by `github-token`.
+The token is used only for the upload, which is attributed to its owner. `github-token` still posts the
+comment.
 
-Without `attachment-token` everything else works, and the comment says the picture is missing.
-Pull requests from forks get no secrets, so they never get the picture.
+Without `attachment-token`, or on pull requests from forks (which get no secrets), the comment is
+posted without the image.
 
 ## Isn't this go-cover-treemap?
 
@@ -103,7 +106,7 @@ section. That's expected, not a misconfiguration; the second PR after a merge to
 | `base-branch` | the repository default branch | Where the baseline comes from. |
 | `breakdown-artifact` | `coverage-breakdown` | Artifact name for the breakdown file. Changing it orphans every existing baseline. |
 | `diff-threshold` | `-101` | Minimum allowed change in total coverage, in percentage points. `-101` disables it. |
-| `attachment-token` | — | Personal access token used to upload the Grid Map. See above. Pass it from a secret. |
+| `attachment-token` | — | Personal access token for uploading the Grid Map image. See [Grid Map image](#grid-map-image-attachment-token). |
 | `fail-on-gate` | `true` | Fail the job when the gate fails. The comment is posted either way. |
 
 ### Outputs
