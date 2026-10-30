@@ -34,8 +34,11 @@ next run's comparison. The metadata-syntax docs support `continue-on-error` on c
 
 The gate, renderer, and comment have run against real repositories. The baseline fetch has extracted a
 real github.com artifact byte-identical to `gh run download`'s. The publish path hasn't run against a
-real repository, and the GHES variant ([ADR-0007](./0007-github-enterprise-server.md)) hasn't run on a
-real GHES.
+real repository.
 
-The split works because each of these paths degrades instead of breaking. That also means a failure
-produces no error, so don't trust any of them on a green run alone.
+The split works because the baseline fetch and the publish path degrade instead of breaking. That also
+means a failure produces no error, so don't trust either path on a green run alone.
+
+The GHES variant ([ADR-0007](./0007-github-enterprise-server.md)) hasn't run on a real GHES. It doesn't
+degrade: an upload pin the instance can't resolve, or a runner without Docker for the gate, fails the
+job.

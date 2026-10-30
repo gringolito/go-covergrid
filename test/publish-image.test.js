@@ -150,7 +150,7 @@ test('a 404 on github.com or GHE.com does not blame the server', async () => {
   for (const env of [{}, { GITHUB_SERVER_URL: 'https://acme.ghe.com', GITHUB_API_URL: 'https://api.acme.ghe.com' }]) {
     const { stdout } = await run({ status: '404', reply: '{"message":"Not Found"}', env })
     assert.match(stdout, /HTTP 404/)
-    assert.ok(!stdout.includes('Enterprise Server'), stdout)
+    assert.ok(!stdout.includes('Enterprise Server'), `${env.GITHUB_SERVER_URL ?? 'https://github.com'}: ${stdout}`)
   }
 })
 
