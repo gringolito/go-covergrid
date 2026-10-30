@@ -146,6 +146,14 @@ test('a 404 on GitHub Enterprise Server also suggests the server may lack the en
   assert.match(stdout, /does not offer user-attachment uploads/)
 })
 
+test('a 404 on github.com or GHE.com does not blame the server', async () => {
+  for (const env of [{}, { GITHUB_SERVER_URL: 'https://acme.ghe.com', GITHUB_API_URL: 'https://api.acme.ghe.com' }]) {
+    const { stdout } = await run({ status: '404', reply: '{"message":"Not Found"}', env })
+    assert.match(stdout, /HTTP 404/)
+    assert.ok(!stdout.includes('Enterprise Server'), stdout)
+  }
+})
+
 // Composite `run:` lines are echoed to the job log and argv is visible to every process on the
 // runner, so the token travels on stdin and is never printed.
 test('the token is sent on stdin, never as an argument or in the log', async () => {

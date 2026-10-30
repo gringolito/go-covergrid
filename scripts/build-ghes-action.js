@@ -4,7 +4,7 @@
 //
 // GHES runs only actions/upload-artifact@v3, so the variant is action.yml with that one
 // step repinned and every shipped path reached one directory up. It is generated so the two
-// cannot drift; test/ghes-action.test.js fails when the committed copy is stale.
+// cannot drift; .github/workflows/ghes-action.yml fails a pull request whose copy is stale.
 //
 //   node scripts/build-ghes-action.js
 

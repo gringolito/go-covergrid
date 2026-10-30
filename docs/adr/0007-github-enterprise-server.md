@@ -1,5 +1,7 @@
 # Ship a GitHub Enterprise Server variant as a generated subdirectory action
 
+Amends the upload host in [ADR-0006](./0006-github-user-attachments.md).
+
 GitHub Enterprise Server (GHES) runs the artifact actions only at v3. The main action stays on the
 latest. GHES users take `gringolito/go-covergrid/ghes@v1`, which differs in one pinned step.
 
@@ -16,11 +18,12 @@ move to REST. Its version is the only difference between the variants.
 
 **`ghes/action.yml` is generated.** `scripts/build-ghes-action.js` builds it from `action.yml`. It
 repins the upload and reaches shipped files through `${GITHUB_ACTION_PATH}/../`.
-`test/ghes-action.test.js` fails when the committed copy is stale.
+`.github/workflows/ghes-action.yml` fails a pull request whose committed copy is stale.
 
 **The upload pin is `c24449f3` (v3.2.1-node20).** GHES resolves the pin against its bundled copy of
-`actions/upload-artifact`. This is the commit `v3-node20` points to. v3.2.2-node20 only refreshes
-dependencies, and older instances may not have it.
+`actions/upload-artifact`. This is the commit `v3-node20` points to. v3.2.2-node20 (March 2026) is a
+security backport of its dependencies for GHES, but older instances may not bundle it. The step
+uploads one file this action wrote, so we take compatibility over the backport.
 
 **The Grid Map upload follows the server.** If the API is `api.<server host>` (github.com, GHE.com),
 the upload goes to `uploads.<server host>`. Otherwise it goes to `<server>/api/uploads`. Only asset

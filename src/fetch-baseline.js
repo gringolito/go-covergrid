@@ -2,10 +2,9 @@
 
 // Entry point: fetch the Baseline from the base branch's latest successful run.
 //
-// Writes `run-id`, and `path` to the extracted Breakdown File. Both are empty when there
-// is no Baseline, which is the normal state on a repository's first run. Any failure
-// becomes a warning and an empty `path`, because losing the comparison is better than
-// failing the job.
+// Writes `path`: the extracted Breakdown File, or empty when there is no Baseline, which is
+// the normal state on a repository's first run. Any failure becomes a warning and an empty
+// `path`, because losing the comparison is better than failing the job.
 //
 // This goes through the REST API rather than actions/download-artifact: GitHub Enterprise
 // Server only runs download-artifact@v3, which cannot read another run's artifacts (ADR-0007).
@@ -27,7 +26,6 @@ async function main() {
     BASELINE_PATH,
   } = process.env
 
-  let runId = ''
   let baselinePath = ''
 
   try {
@@ -53,7 +51,6 @@ async function main() {
       )
       return
     }
-    runId = String(run)
 
     const artifact = await api.artifactId({ runId: run, name: BREAKDOWN_ARTIFACT })
     if (artifact === null) {
@@ -74,7 +71,6 @@ async function main() {
         : ''
     warning(`Baseline fetch failed (${err.message}); continuing without a baseline.${hint}`)
   } finally {
-    setOutput('run-id', runId)
     setOutput('path', baselinePath)
   }
 }

@@ -4,7 +4,7 @@ The logic is split into four units. Each runs on its own as an `action.yml` step
 
 | Unit | Reads | Writes | Network |
 | --- | --- | --- | --- |
-| `src/fetch-baseline.js` | token, base branch, artifact name, `GITHUB_WORKFLOW_REF` | the Baseline file, `run-id`, `path` | GitHub API |
+| `src/fetch-baseline.js` | token, base branch, artifact name, `GITHUB_WORKFLOW_REF` | the Baseline file, `path` | GitHub API, artifact storage |
 | `src/render-gridmap.js` | a Breakdown File | an SVG, coverage outputs | none |
 | `scripts/publish-image.sh` | an SVG, a personal token | `url` | GitHub uploads |
 | `src/post-comment.js` | two Breakdown Files, image URL | `comment-id` | GitHub API |
@@ -32,8 +32,10 @@ next run's comparison. The metadata-syntax docs support `continue-on-error` on c
 
 ## Untested paths
 
-The gate, renderer, and comment have run against real repositories. The baseline fetch has run against
-a real github.com artifact ([ADR-0007](./0007-github-enterprise-server.md)). The publish path hasn't.
+The gate, renderer, and comment have run against real repositories. The baseline fetch has extracted a
+real github.com artifact byte-identical to `gh run download`'s. The publish path hasn't run against a
+real repository, and the GHES variant ([ADR-0007](./0007-github-enterprise-server.md)) hasn't run on a
+real GHES.
 
-The split works because each of these two paths degrades instead of breaking. That also means a failure
-produces no error, so don't trust either path on a green run alone.
+The split works because each of these paths degrades instead of breaking. That also means a failure
+produces no error, so don't trust any of them on a green run alone.

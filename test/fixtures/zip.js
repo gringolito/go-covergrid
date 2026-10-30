@@ -8,8 +8,13 @@ const zlib = require('node:zlib')
 /**
  * Builds an archive the way a streaming writer does when `streamed` is set: zero sizes in
  * the local header, the real ones in a data descriptor and the central directory.
+ * `localExtra`, `centralExtra` and `fileComment` pad every entry with that many bytes, as
+ * real archivers do with timestamp and Unix-permission extra fields.
  */
-function zip(files, { method = 8, streamed = false, comment = '' } = {}) {
+function zip(
+  files,
+  { method = 8, streamed = false, comment = '', localExtra = 0, centralExtra = 0, fileComment = 0 } = {},
+) {
   const locals = []
   const centrals = []
   let offset = 0
@@ -28,8 +33,9 @@ function zip(files, { method = 8, streamed = false, comment = '' } = {}) {
     local.writeUInt32LE(streamed ? 0 : packed.length, 18)
     local.writeUInt32LE(streamed ? 0 : data.length, 22)
     local.writeUInt16LE(nameBuf.length, 26)
+    local.writeUInt16LE(localExtra, 28)
 
-    const parts = [local, nameBuf, packed]
+    const parts = [local, nameBuf, Buffer.alloc(localExtra, 0x55), packed]
     if (streamed) {
       const descriptor = Buffer.alloc(16)
       descriptor.writeUInt32LE(0x08074b50, 0)
@@ -49,8 +55,10 @@ function zip(files, { method = 8, streamed = false, comment = '' } = {}) {
     central.writeUInt32LE(packed.length, 20)
     central.writeUInt32LE(data.length, 24)
     central.writeUInt16LE(nameBuf.length, 28)
+    central.writeUInt16LE(centralExtra, 30)
+    central.writeUInt16LE(fileComment, 32)
     central.writeUInt32LE(offset, 42)
-    centrals.push(Buffer.concat([central, nameBuf]))
+    centrals.push(Buffer.concat([central, nameBuf, Buffer.alloc(centralExtra, 0x55), Buffer.alloc(fileComment, 0x43)]))
 
     offset += record.length
   }

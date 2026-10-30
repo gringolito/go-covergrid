@@ -18,6 +18,19 @@ test('a stored entry is read without inflating', () => {
   assert.strictEqual(data.toString('utf8'), BREAKDOWN)
 })
 
+// Real archivers add extra fields, with different lengths in the local header and the
+// central directory; a stored entry is where a wrong offset would pass as the right length.
+test('extra fields and entry comments are stepped over, not read as content', () => {
+  const buf = zip(
+    [
+      { name: 'nested/', content: '' },
+      { name: 'nested/coverage-breakdown.txt', content: BREAKDOWN },
+    ],
+    { method: 0, localExtra: 28, centralExtra: 24, fileComment: 5 },
+  )
+  assert.strictEqual(readSoleFile(buf).data.toString('utf8'), BREAKDOWN)
+})
+
 // Artifact archives are written as a stream, so the local header carries no sizes.
 test('a streamed archive is read from the central directory sizes', () => {
   const { data } = readSoleFile(zip([{ name: 'coverage-breakdown.txt', content: BREAKDOWN }], { streamed: true }))

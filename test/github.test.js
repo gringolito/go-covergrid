@@ -183,3 +183,20 @@ test('a refused artifact download carries the status code', async () => {
   const { api } = client([{ status: 403, body: { message: 'Resource not accessible by integration' } }])
   await assert.rejects(() => api.downloadArtifact(9), (err) => err.status === 403)
 })
+
+// A 403 status means "add actions: read" to callers; storage refusing a signed URL is not that.
+test('a storage refusal names the host, not the signed URL, and carries no API status', async () => {
+  const { api } = client([
+    { status: 302, headers: { location: 'https://blob.example/a.zip?sig=s3cr3t' }, body: '' },
+    { status: 403, body: 'AuthenticationFailed' },
+  ])
+  await assert.rejects(
+    () => api.downloadArtifact(9),
+    (err) => {
+      assert.strictEqual(err.status, undefined)
+      assert.match(err.message, /artifact storage at blob\.example refused the download with 403/)
+      assert.ok(!err.message.includes('s3cr3t'), err.message)
+      return true
+    },
+  )
+})

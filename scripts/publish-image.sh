@@ -18,14 +18,11 @@ api_url="${api_url%/}"
 # `uploads.<server host>`. GitHub Enterprise Server serves both under its own host, at /api/v3
 # and /api/uploads, whatever that host is called.
 server_host="${server_url#https://}"
+enterprise_hint=''
 if [[ "$api_url" == "https://api.${server_host}" ]]; then
   uploads_url="https://uploads.${server_host}"
 else
   uploads_url="${server_url}/api/uploads"
-fi
-
-enterprise_hint=''
-if [[ "$server_url" != 'https://github.com' ]]; then
   enterprise_hint=' On GitHub Enterprise Server this can also mean the server does not offer user-attachment uploads.'
 fi
 

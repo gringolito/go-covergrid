@@ -179,3 +179,22 @@ test('the gate step tolerates failure so the comment is still posted', () => {
   assert.ok(gate, 'no step with id: gate')
   assert.ok(gate.includes('continue-on-error: true'), 'the gate must not abort the remaining steps')
 })
+
+// A miswired baseline loses the comparison silently: every degraded path is only a warning.
+test('the fetched baseline reaches the gate and the comment, and only when it was fetched', () => {
+  const block = (id) => {
+    const found = steps().find((b) => b.includes(`id: ${id}`))
+    assert.ok(found, `no step with id: ${id}`)
+    return found.join('\n')
+  }
+
+  const baseline = block('baseline')
+  for (const name of ['GITHUB_TOKEN', 'BREAKDOWN_ARTIFACT', 'BASELINE_PATH']) {
+    assert.match(baseline, new RegExp(`^\\s*${name}: `, 'm'), `the baseline fetch is not given ${name}`)
+  }
+  assert.match(block('gate'), /diff-base-breakdown-file-name: \$\{\{ steps\.baseline\.outputs\.path \}\}/)
+
+  const comment = steps().find((b) => b[0] === 'name: Post the pull request comment').join('\n')
+  assert.match(comment, /HAS_BASELINE: \$\{\{ steps\.baseline\.outputs\.path != '' \}\}/)
+  assert.match(comment, /BASE_BREAKDOWN_PATH: \$\{\{ steps\.baseline\.outputs\.path \}\}/)
+})

@@ -170,7 +170,12 @@ test('the baseline is fetched from the newest successful base-branch run, throug
     {
       method: 'GET',
       match: /\/actions\/runs\/777\/artifacts\?/,
-      body: { artifacts: [{ id: 55, name: 'coverage-breakdown', expired: false }] },
+      body: {
+        artifacts: [
+          { id: 54, name: 'coverage-breakdown', expired: false },
+          { id: 55, name: 'cov-custom', expired: false },
+        ],
+      },
     },
     { method: 'GET', match: /\/actions\/artifacts\/55\/zip$/, location: '/blob/55.zip?sig=abc' },
     {
@@ -180,15 +185,15 @@ test('the baseline is fetched from the newest successful base-branch run, throug
     },
   ])
   try {
-    const env = baselineEnv(api, ws)
+    const env = { ...baselineEnv(api, ws), BREAKDOWN_ARTIFACT: 'cov-custom' }
     const log = await run('fetch-baseline.js', env, ws.dir)
 
-    assert.strictEqual(ws.outputs()['run-id'], '777')
     assert.strictEqual(ws.outputs().path, env.BASELINE_PATH)
     assert.strictEqual(fs.readFileSync(env.BASELINE_PATH, 'utf8'), breakdown)
     assert.ok(!log.includes('::warning::'), log)
 
     assert.match(api.requests[0].url, /branch=main&status=success/)
+    assert.match(api.requests[1].url, /name=cov-custom/)
     assert.strictEqual(api.requests[0].headers.authorization, 'Bearer tok')
     assert.strictEqual(api.requests[3].headers.authorization, undefined, 'the token followed the redirect')
   } finally {
@@ -202,7 +207,6 @@ test('a repository with no successful base-branch run yields no baseline and a w
   const api = await fakeApi([{ method: 'GET', match: /\/runs\?/, body: { workflow_runs: [] } }])
   try {
     const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
-    assert.strictEqual(ws.outputs()['run-id'], '')
     assert.strictEqual(ws.outputs().path, '')
     assert.match(log, /::warning::No successful "ci\.yml" run found on main/)
   } finally {
@@ -220,7 +224,6 @@ test('a base-branch run whose artifact is gone yields no baseline and names the 
   ])
   try {
     const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
-    assert.strictEqual(ws.outputs()['run-id'], '777')
     assert.strictEqual(ws.outputs().path, '')
     assert.match(log, /::warning::Run 777 on main has no unexpired "coverage-breakdown" artifact/)
   } finally {
@@ -234,7 +237,6 @@ test('an API failure during the baseline fetch degrades to no baseline', async (
   const api = await fakeApi([{ method: 'GET', match: /\/runs\?/, status: 403, body: { message: 'nope' } }])
   try {
     const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
-    assert.strictEqual(ws.outputs()['run-id'], '')
     assert.strictEqual(ws.outputs().path, '')
     assert.match(log, /::warning::Baseline fetch failed .*add `actions: read`/)
   } finally {

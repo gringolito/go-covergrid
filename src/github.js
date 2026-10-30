@@ -118,18 +118,26 @@ function createClient({ token, repository, apiUrl = 'https://api.github.com', fe
     }
 
     let response = await fetchImpl(url, { method: 'GET', headers, redirect: 'manual' })
+    let storageHost = null
     const location = response.headers.get('location')
     if (response.status >= 300 && response.status < 400 && location) {
       await response.arrayBuffer()
-      response = await fetchImpl(new URL(location, url).href, {
+      const storage = new URL(location, url)
+      storageHost = storage.host
+      response = await fetchImpl(storage.href, {
         method: 'GET',
         headers: { 'user-agent': 'go-covergrid' },
       })
     }
 
     if (!response.ok) {
-      const text = await response.text()
-      const err = new Error(`artifact download GET ${url} failed with ${response.status}: ${text.slice(0, 500)}`)
+      const text = (await response.text()).slice(0, 500)
+      // The storage URL carries a signature, so only its host is reported. Its status is not
+      // attached: callers read a 403 as a missing `actions: read`, which storage cannot mean.
+      if (storageHost) {
+        throw new Error(`artifact storage at ${storageHost} refused the download with ${response.status}: ${text}`)
+      }
+      const err = new Error(`artifact download GET ${url} failed with ${response.status}: ${text}`)
       err.status = response.status
       throw err
     }
