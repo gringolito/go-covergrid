@@ -72,6 +72,8 @@ async function run({ reply = `{"url":"${ASSET}"}`, status = '201', stderr = '', 
         GITHUB_OUTPUT: outputFile,
         ATTACHMENT_TOKEN: TOKEN,
         REPOSITORY_ID: '1318677471',
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_API_URL: 'https://api.github.com',
         ...env,
       },
       encoding: 'utf8',
@@ -105,6 +107,35 @@ test('it uploads the SVG against the repository and publishes the asset URL', as
   assert.strictEqual(outputs.url, ASSET)
   assert.match(stdout, /^::notice::Grid map uploaded to https:\/\/github\.com\/user-attachments\/assets\//m)
   assert.ok(!stdout.includes('::warning::'))
+})
+
+const GHES = { GITHUB_SERVER_URL: 'https://ghes.example.com', GITHUB_API_URL: 'https://ghes.example.com/api/v3' }
+const GHES_ASSET = 'https://ghes.example.com/user-attachments/assets/a32058e0-f03b-4027-9dda-f0f718cc9393'
+
+test('on GitHub Enterprise Server it uploads to the server and accepts an asset on its host', async () => {
+  const { args, outputs } = await run({ reply: `{"url":"${GHES_ASSET}"}`, env: GHES })
+  assert.match(args, /https:\/\/ghes\.example\.com\/api\/uploads\/user-attachments\/assets\?/)
+  assert.strictEqual(outputs.url, GHES_ASSET)
+})
+
+test('on GHE.com it uploads to the uploads host beside the API host', async () => {
+  const { args } = await run({
+    reply: '{"url":"https://acme.ghe.com/user-attachments/assets/x"}',
+    env: { GITHUB_SERVER_URL: 'https://acme.ghe.com', GITHUB_API_URL: 'https://api.acme.ghe.com' },
+  })
+  assert.match(args, /https:\/\/uploads\.acme\.ghe\.com\/user-attachments\/assets\?/)
+})
+
+// The asset must live where this run's server lives; anything else was not our upload.
+test('on GitHub Enterprise Server an asset on github.com is refused', async () => {
+  const { stdout, outputs } = await run({ env: GHES })
+  assert.match(stdout, /^::warning::Unexpected reply from the upload endpoint/m)
+  assert.strictEqual(outputs.url, '')
+})
+
+test('a 404 on GitHub Enterprise Server also suggests the server may lack the endpoint', async () => {
+  const { stdout } = await run({ status: '404', reply: '{"message":"Not Found"}', env: GHES })
+  assert.match(stdout, /does not offer user-attachment uploads/)
 })
 
 // Composite `run:` lines are echoed to the job log and argv is visible to every process on the
