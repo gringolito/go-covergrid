@@ -94,7 +94,57 @@ function createClient({ token, repository, apiUrl = 'https://api.github.com', fe
     return data.workflow_runs.length > 0 ? data.workflow_runs[0].id : null
   }
 
-  return { owner, repo, request, paginate, upsertComment, latestSuccessfulRunId }
+  /** The id of the run's unexpired artifact with this name, or null. */
+  async function artifactId({ runId, name }) {
+    const query = new URLSearchParams({ name, per_page: '100' })
+    const { data } = await request('GET', `/repos/${owner}/${repo}/actions/runs/${runId}/artifacts?${query}`)
+    // Filtered again here: older GitHub Enterprise Server releases ignore the `name` parameter.
+    const artifact = data.artifacts.find((a) => a.name === name && !a.expired)
+    return artifact ? artifact.id : null
+  }
+
+  /**
+   * The artifact's zip archive. The API answers with a redirect to blob storage, which is
+   * followed by hand so the token is never sent to a host other than the API.
+   *
+   * @returns {Promise<Buffer>}
+   */
+  async function downloadArtifact(id) {
+    const url = `${base}/repos/${owner}/${repo}/actions/artifacts/${id}/zip`
+    const headers = {
+      authorization: `Bearer ${token}`,
+      'x-github-api-version': API_VERSION,
+      'user-agent': 'go-covergrid',
+    }
+
+    let response = await fetchImpl(url, { method: 'GET', headers, redirect: 'manual' })
+    let storageHost = null
+    const location = response.headers.get('location')
+    if (response.status >= 300 && response.status < 400 && location) {
+      await response.arrayBuffer()
+      const storage = new URL(location, url)
+      storageHost = storage.host
+      response = await fetchImpl(storage.href, {
+        method: 'GET',
+        headers: { 'user-agent': 'go-covergrid' },
+      })
+    }
+
+    if (!response.ok) {
+      const text = (await response.text()).slice(0, 500)
+      // The storage URL carries a signature, so only its host is reported. Its status is not
+      // attached: callers read a 403 as a missing `actions: read`, which storage cannot mean.
+      if (storageHost) {
+        throw new Error(`artifact storage at ${storageHost} refused the download with ${response.status}: ${text}`)
+      }
+      const err = new Error(`artifact download GET ${url} failed with ${response.status}: ${text}`)
+      err.status = response.status
+      throw err
+    }
+    return Buffer.from(await response.arrayBuffer())
+  }
+
+  return { owner, repo, request, paginate, upsertComment, latestSuccessfulRunId, artifactId, downloadArtifact }
 }
 
 module.exports = { createClient, API_VERSION }

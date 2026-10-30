@@ -1,5 +1,9 @@
 # Upload the Grid Map as a GitHub user attachment
 
+> [!NOTE]
+> Amended by [ADR-0007](./0007-github-enterprise-server.md): the upload and asset hosts below follow
+> the server the run is on, so GHES and GHE.com upload to their own hosts.
+
 Supersedes the host choice in [ADR-0002](./0002-public-image-hosting.md). Its sanitizer findings still
 hold: no inline `<svg>`, no `data:` URIs, presentation attributes only.
 

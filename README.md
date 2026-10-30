@@ -112,6 +112,39 @@ The second PR after a merge to `main` gets one.
 `total-coverage`, `total-statements`, `covered-statements`, `package-count`, `grid-map-path`,
 `grid-map-url`, `gate-outcome`.
 
+## GitHub Enterprise Server
+
+GitHub Enterprise Server doesn't run `actions/upload-artifact` v4 or later, so use the `ghes`
+variant. It takes the same inputs, gives the same outputs, and uses the same tags:
+
+```yaml
+- uses: gringolito/go-covergrid/ghes@v1
+  with:
+    profile: cover.out
+    config: ./.testcoverage.yml
+```
+
+It differs from the main action in one step: the breakdown file is uploaded with
+`upload-artifact@v3.2.1-node20`. Both variants fetch the baseline through the REST API, so neither needs
+`download-artifact`. See [ADR-0007](docs/adr/0007-github-enterprise-server.md).
+
+GHES serves `actions/upload-artifact` from its own bundled copy. The step is pinned to the
+`v3.2.1-node20` commit (`c24449f3`, September 2024), so that copy has to include it. It does on any
+instance whose `actions/upload-artifact` has the `v3.2.1-node20` tag.
+
+Your runners and instance also need:
+
+- **Linux runners with Docker and access to `ghcr.io`.** The embedded gate pulls its image from there.
+- **`node` on `PATH`.** Every script step runs it. GitHub-hosted images have it, but self-hosted
+  runners often don't. Add `actions/setup-node` before this action if yours don't.
+- **GitHub Connect or actions-sync**, so the runner can fetch this action and
+  `vladopajic/go-test-coverage`.
+
+GitHub Enterprise Server doesn't accept token uploads of user attachments, so the Grid Map image isn't
+available there. `gh` refuses `--attach` on enterprise hosts for the same reason. The action still
+tries `/api/uploads` in case a future GHES release adds it. When it's refused, the action warns and
+posts the comment without the image.
+
 ## Reading a Grid Map
 
 Each package is one tile. Tile **area** is the package's statement count, so big tiles are big
@@ -182,3 +215,10 @@ The generator is test tooling, and nothing in `src/` may import it.
 
 The renderer never touches the network. Upload and comment posting are separate scripts, because the
 upload needs a personal token and the renderer must stay testable without one.
+
+`ghes/action.yml` is generated from `action.yml`. Never edit it by hand. After any change to
+`action.yml`, including a Dependabot bump, regenerate it. CI fails while it's stale:
+
+```bash
+node scripts/build-ghes-action.js
+```

@@ -9,6 +9,22 @@ set -uo pipefail
 svg="${1:?usage: publish-image.sh <file.svg>}"
 token="${ATTACHMENT_TOKEN:-}"
 repository_id="${REPOSITORY_ID:-}"
+server_url="${GITHUB_SERVER_URL:-https://github.com}"
+server_url="${server_url%/}"
+api_url="${GITHUB_API_URL:-https://api.github.com}"
+api_url="${api_url%/}"
+
+# github.com and GHE.com serve the API from `api.<server host>` and uploads from
+# `uploads.<server host>`. GitHub Enterprise Server serves both under its own host, at /api/v3
+# and /api/uploads, whatever that host is called.
+server_host="${server_url#https://}"
+enterprise_hint=''
+if [[ "$api_url" == "https://api.${server_host}" ]]; then
+  uploads_url="https://uploads.${server_host}"
+else
+  uploads_url="${server_url}/api/uploads"
+  enterprise_hint=' On GitHub Enterprise Server this is expected: it does not accept token uploads of user attachments.'
+fi
 
 # `--retry` logs every attempt it abandons on stderr, so stderr goes to its own file and is
 # read only when the exit status says the call failed.
@@ -48,7 +64,7 @@ if ! status=$(curl --silent --show-error \
   --data-binary "@${svg}" \
   --output "$reply" \
   --write-out '%{http_code}' \
-  "https://uploads.github.com/user-attachments/assets?name=grid-map.svg&content_type=image%2Fsvg%2Bxml&repository_id=${repository_id}" \
+  "${uploads_url}/user-attachments/assets?name=grid-map.svg&content_type=image%2Fsvg%2Bxml&repository_id=${repository_id}" \
   2>"$curl_stderr" <<<"Authorization: Bearer ${token}"); then
   fail_soft "Grid map upload failed: $(one_line "$curl_stderr")."
 fi
@@ -60,23 +76,23 @@ case "$status" in
     ;;
   404)
     # The endpoint answers 404, not 403, when the token cannot write to the repository.
-    fail_soft 'GitHub refused the upload (HTTP 404). attachment-token must be a personal access token whose owner has write access to this repository, and a fine-grained one needs "Pull requests: Read and write" on it; GITHUB_TOKEN and GitHub App tokens are always refused.'
+    fail_soft "GitHub refused the upload (HTTP 404). attachment-token must be a personal access token whose owner has write access to this repository, and a fine-grained one needs \"Pull requests: Read and write\" on it; GITHUB_TOKEN and GitHub App tokens are always refused.${enterprise_hint}"
     ;;
   *)
     fail_soft "GitHub refused the upload (HTTP ${status}): $(one_line "$reply")."
     ;;
 esac
 
-# Anything but an HTTPS asset URL on github.com would embed something we did not upload.
+# Anything but an HTTPS asset URL on this server's host would embed something we did not upload.
 if ! url=$(node -e '
   const { url } = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
   const parsed = new URL(url)
-  if (parsed.protocol !== "https:" || parsed.host !== "github.com" ||
+  if (parsed.protocol !== "https:" || parsed.host !== new URL(process.argv[2]).host ||
       !/^\/user-attachments\/assets\/[^/]+$/.test(parsed.pathname) || parsed.search || parsed.hash) {
     process.exit(1)
   }
   process.stdout.write(parsed.href)
-' "$reply" 2>/dev/null); then
+' "$reply" "$server_url" 2>/dev/null); then
   fail_soft "Unexpected reply from the upload endpoint: $(one_line "$reply")."
 fi
 

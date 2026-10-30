@@ -19,6 +19,9 @@ function stub(responses) {
       async text() {
         return typeof next.body === 'string' ? next.body : JSON.stringify(next.body ?? {})
       },
+      async arrayBuffer() {
+        return Buffer.isBuffer(next.body) ? next.body : Buffer.from(await this.text())
+      },
     }
   }
   return { calls, fetchImpl }
@@ -134,4 +137,66 @@ test('a workflow filename is URL-encoded so a path cannot be injected', async ()
   const { calls, api } = client([{ body: { workflow_runs: [] } }])
   await api.latestSuccessfulRunId({ workflow: '../../evil.yml', branch: 'main' })
   assert.ok(!calls[0].url.includes('../'), calls[0].url)
+})
+
+// Older GitHub Enterprise Server releases ignore `name=` and list every artifact of the run.
+test('the breakdown artifact is picked out by name even when the server does not filter', async () => {
+  const { calls, api } = client([
+    {
+      body: {
+        artifacts: [
+          { id: 1, name: 'binaries', expired: false },
+          { id: 2, name: 'coverage-breakdown', expired: true },
+          { id: 3, name: 'coverage-breakdown', expired: false },
+        ],
+      },
+    },
+  ])
+  assert.strictEqual(await api.artifactId({ runId: 77, name: 'coverage-breakdown' }), 3)
+  assert.match(calls[0].url, /\/repos\/o\/r\/actions\/runs\/77\/artifacts\?name=coverage-breakdown/)
+})
+
+test('a run without the artifact yields null', async () => {
+  const { api } = client([{ body: { artifacts: [{ id: 2, name: 'coverage-breakdown', expired: true }] } }])
+  assert.strictEqual(await api.artifactId({ runId: 77, name: 'coverage-breakdown' }), null)
+})
+
+// The redirect points at blob storage, which must never see the repository token.
+test('the artifact download follows the storage redirect without the token', async () => {
+  const archive = Buffer.from([0x50, 0x4b, 0x05, 0x06])
+  const { calls, api } = client([
+    { status: 302, headers: { location: 'https://blob.example/a.zip?sig=1' }, body: '' },
+    { body: archive },
+  ])
+
+  const bytes = await api.downloadArtifact(9)
+
+  assert.deepStrictEqual(bytes, archive)
+  assert.strictEqual(calls[0].url, 'https://api.github.com/repos/o/r/actions/artifacts/9/zip')
+  assert.strictEqual(calls[0].init.headers.authorization, 'Bearer t0ken')
+  assert.strictEqual(calls[0].init.redirect, 'manual')
+  assert.strictEqual(calls[1].url, 'https://blob.example/a.zip?sig=1')
+  assert.ok(!('authorization' in calls[1].init.headers), 'the token followed the redirect')
+})
+
+test('a refused artifact download carries the status code', async () => {
+  const { api } = client([{ status: 403, body: { message: 'Resource not accessible by integration' } }])
+  await assert.rejects(() => api.downloadArtifact(9), (err) => err.status === 403)
+})
+
+// A 403 status means "add actions: read" to callers; storage refusing a signed URL is not that.
+test('a storage refusal names the host, not the signed URL, and carries no API status', async () => {
+  const { api } = client([
+    { status: 302, headers: { location: 'https://blob.example/a.zip?sig=s3cr3t' }, body: '' },
+    { status: 403, body: 'AuthenticationFailed' },
+  ])
+  await assert.rejects(
+    () => api.downloadArtifact(9),
+    (err) => {
+      assert.strictEqual(err.status, undefined)
+      assert.match(err.message, /artifact storage at blob\.example refused the download with 403/)
+      assert.ok(!err.message.includes('s3cr3t'), err.message)
+      return true
+    },
+  )
 })

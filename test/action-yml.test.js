@@ -106,7 +106,7 @@ test('no node script is invoked by a relative path', () => {
 // Third-party actions must be pinned to a full commit SHA, not a moving tag.
 test('every third-party action is pinned to a 40-character SHA', () => {
   const uses = [...TEXT.matchAll(/^\s*uses: (\S+)/gm)].map((m) => m[1])
-  assert.ok(uses.length >= 3)
+  assert.ok(uses.length >= 2)
   for (const ref of uses) {
     assert.match(ref, /@[0-9a-f]{40}$/, `${ref} is not pinned to a commit SHA`)
   }
@@ -178,4 +178,32 @@ test('the gate step tolerates failure so the comment is still posted', () => {
   const gate = steps().find((b) => b.includes('id: gate'))
   assert.ok(gate, 'no step with id: gate')
   assert.ok(gate.includes('continue-on-error: true'), 'the gate must not abort the remaining steps')
+})
+
+// A miswired baseline loses the comparison silently: every degraded path is only a warning.
+test('the fetched baseline reaches the gate and the comment, and only when it was fetched', () => {
+  const block = (predicate, label) => {
+    const found = steps().find(predicate)
+    assert.ok(found, `no step ${label}`)
+    return found
+  }
+  const byId = (id) => block((b) => b.includes(`id: ${id}`), `with id: ${id}`)
+
+  // The fetch must look up the artifact the upload writes, with the API token, into its own file.
+  const baseline = byId('baseline')
+  for (const line of [
+    '  GITHUB_TOKEN: ${{ inputs.github-token }}',
+    '  BREAKDOWN_ARTIFACT: ${{ inputs.breakdown-artifact }}',
+    '  BASELINE_PATH: ${{ steps.prepare.outputs.baseline-breakdown }}',
+  ]) {
+    assert.ok(baseline.includes(line), `the baseline fetch lacks "${line.trim()}"`)
+  }
+  const upload = block((b) => b.some((l) => l.startsWith('uses: actions/upload-artifact@')), 'uploading an artifact')
+  assert.ok(upload.includes('  name: ${{ inputs.breakdown-artifact }}'), 'the upload and the fetch disagree on the name')
+
+  assert.ok(byId('gate').includes('  diff-base-breakdown-file-name: ${{ steps.baseline.outputs.path }}'))
+
+  const comment = block((b) => b[0] === 'name: Post the pull request comment', 'posting the comment')
+  assert.ok(comment.includes("  HAS_BASELINE: ${{ steps.baseline.outputs.path != '' }}"))
+  assert.ok(comment.includes('  BASE_BREAKDOWN_PATH: ${{ steps.baseline.outputs.path }}'))
 })

@@ -11,6 +11,7 @@ const path = require('node:path')
 const http = require('node:http')
 const { execFile } = require('node:child_process')
 const { wellFormed } = require('../src/gridmap/svg.js')
+const { zip } = require('./fixtures/zip.js')
 const { promisify } = require('node:util')
 
 const execFileAsync = promisify(execFile)
@@ -77,6 +78,16 @@ async function fakeApi(routes) {
         res.end('{"message":"no route"}')
         return
       }
+      if (route.location) {
+        res.writeHead(302, { location: route.location })
+        res.end()
+        return
+      }
+      if (Buffer.isBuffer(route.body)) {
+        res.writeHead(route.status || 200, { 'content-type': 'application/zip' })
+        res.end(route.body)
+        return
+      }
       res.writeHead(route.status || 200, { 'content-type': 'application/json' })
       res.end(JSON.stringify(route.body))
     })
@@ -139,48 +150,64 @@ test('an unusual package path renders without complaint', async () => {
   }
 })
 
-test('the baseline lookup reports the newest successful run on the base branch', async () => {
+function baselineEnv(api, ws) {
+  return {
+    GITHUB_TOKEN: 'tok',
+    GITHUB_REPOSITORY: 'o/r',
+    GITHUB_API_URL: api.url,
+    GITHUB_WORKFLOW_REF: 'acme/parcel/.github/workflows/ci.yml@refs/heads/main',
+    BASE_BRANCH: 'main',
+    BREAKDOWN_ARTIFACT: 'coverage-breakdown',
+    BASELINE_PATH: path.join(ws.dir, 'baseline', 'coverage-breakdown.txt'),
+  }
+}
+
+test('the baseline is fetched from the newest successful base-branch run, through the storage redirect', async () => {
   const ws = workspace()
+  const breakdown = fs.readFileSync(path.join(FIXTURES, 'sample-breakdown.txt'), 'utf8')
   const api = await fakeApi([
     { method: 'GET', match: /\/actions\/workflows\/ci\.yml\/runs\?/, body: { workflow_runs: [{ id: 777 }] } },
+    {
+      method: 'GET',
+      match: /\/actions\/runs\/777\/artifacts\?/,
+      body: {
+        artifacts: [
+          { id: 54, name: 'coverage-breakdown', expired: false },
+          { id: 55, name: 'cov-custom', expired: false },
+        ],
+      },
+    },
+    { method: 'GET', match: /\/actions\/artifacts\/55\/zip$/, location: '/blob/55.zip?sig=abc' },
+    {
+      method: 'GET',
+      match: /^\/blob\/55\.zip\?sig=abc$/,
+      body: zip([{ name: 'coverage-breakdown.txt', content: breakdown }], { streamed: true }),
+    },
   ])
   try {
-    await run(
-      'find-baseline.js',
-      {
-        GITHUB_TOKEN: 'tok',
-        GITHUB_REPOSITORY: 'o/r',
-        GITHUB_API_URL: api.url,
-        GITHUB_WORKFLOW_REF: 'acme/parcel/.github/workflows/ci.yml@refs/heads/main',
-        BASE_BRANCH: 'main',
-      },
-      ws.dir,
-    )
-    assert.strictEqual(ws.outputs()['run-id'], '777')
+    const env = { ...baselineEnv(api, ws), BREAKDOWN_ARTIFACT: 'cov-custom' }
+    const log = await run('fetch-baseline.js', env, ws.dir)
+
+    assert.strictEqual(ws.outputs().path, env.BASELINE_PATH)
+    assert.strictEqual(fs.readFileSync(env.BASELINE_PATH, 'utf8'), breakdown)
+    assert.ok(!log.includes('::warning::'), log)
+
     assert.match(api.requests[0].url, /branch=main&status=success/)
+    assert.match(api.requests[1].url, /name=cov-custom/)
     assert.strictEqual(api.requests[0].headers.authorization, 'Bearer tok')
+    assert.strictEqual(api.requests[3].headers.authorization, undefined, 'the token followed the redirect')
   } finally {
     await api.close()
     ws.cleanup()
   }
 })
 
-test('a repository with no successful base-branch run yields an empty run id and a warning', async () => {
+test('a repository with no successful base-branch run yields no baseline and a warning', async () => {
   const ws = workspace()
   const api = await fakeApi([{ method: 'GET', match: /\/runs\?/, body: { workflow_runs: [] } }])
   try {
-    const log = await run(
-      'find-baseline.js',
-      {
-        GITHUB_TOKEN: 'tok',
-        GITHUB_REPOSITORY: 'o/r',
-        GITHUB_API_URL: api.url,
-        GITHUB_WORKFLOW_REF: 'acme/parcel/.github/workflows/ci.yml@refs/heads/main',
-        BASE_BRANCH: 'main',
-      },
-      ws.dir,
-    )
-    assert.strictEqual(ws.outputs()['run-id'], '')
+    const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
+    assert.strictEqual(ws.outputs().path, '')
     assert.match(log, /::warning::No successful "ci\.yml" run found on main/)
   } finally {
     await api.close()
@@ -188,23 +215,56 @@ test('a repository with no successful base-branch run yields an empty run id and
   }
 })
 
-test('an API failure during the baseline lookup degrades to no baseline', async () => {
+// Artifacts expire, so a base branch that has not built for a while has a run but no file.
+test('a base-branch run whose artifact is gone yields no baseline and names the run', async () => {
+  const ws = workspace()
+  const api = await fakeApi([
+    { method: 'GET', match: /\/workflows\/ci\.yml\/runs\?/, body: { workflow_runs: [{ id: 777 }] } },
+    { method: 'GET', match: /\/runs\/777\/artifacts\?/, body: { artifacts: [] } },
+  ])
+  try {
+    const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
+    assert.strictEqual(ws.outputs().path, '')
+    assert.match(log, /::warning::Run 777 on main has no unexpired "coverage-breakdown" artifact/)
+  } finally {
+    await api.close()
+    ws.cleanup()
+  }
+})
+
+test('an API failure during the baseline fetch degrades to no baseline', async () => {
   const ws = workspace()
   const api = await fakeApi([{ method: 'GET', match: /\/runs\?/, status: 403, body: { message: 'nope' } }])
   try {
-    const log = await run(
-      'find-baseline.js',
-      {
-        GITHUB_TOKEN: 'tok',
-        GITHUB_REPOSITORY: 'o/r',
-        GITHUB_API_URL: api.url,
-        GITHUB_WORKFLOW_REF: 'acme/parcel/.github/workflows/ci.yml@refs/heads/main',
-        BASE_BRANCH: 'main',
-      },
-      ws.dir,
-    )
-    assert.strictEqual(ws.outputs()['run-id'], '')
-    assert.match(log, /::warning::Baseline lookup failed/)
+    const log = await run('fetch-baseline.js', baselineEnv(api, ws), ws.dir)
+    assert.strictEqual(ws.outputs().path, '')
+    assert.match(log, /::warning::Baseline fetch failed .*add `actions: read`/)
+  } finally {
+    await api.close()
+    ws.cleanup()
+  }
+})
+
+test('an artifact that is not a breakdown archive degrades to no baseline and writes nothing', async () => {
+  const ws = workspace()
+  const api = await fakeApi([
+    { method: 'GET', match: /\/workflows\/ci\.yml\/runs\?/, body: { workflow_runs: [{ id: 777 }] } },
+    { method: 'GET', match: /\/runs\/777\/artifacts\?/, body: { artifacts: [{ id: 55, name: 'coverage-breakdown' }] } },
+    {
+      method: 'GET',
+      match: /\/artifacts\/55\/zip$/,
+      body: zip([
+        { name: 'a.txt', content: 'a' },
+        { name: 'b.txt', content: 'b' },
+      ]),
+    },
+  ])
+  try {
+    const env = baselineEnv(api, ws)
+    const log = await run('fetch-baseline.js', env, ws.dir)
+    assert.strictEqual(ws.outputs().path, '')
+    assert.ok(!fs.existsSync(env.BASELINE_PATH))
+    assert.match(log, /::warning::Baseline fetch failed \(expected one file in the artifact, found 2\)/)
   } finally {
     await api.close()
     ws.cleanup()
