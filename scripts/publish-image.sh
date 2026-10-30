@@ -14,13 +14,15 @@ server_url="${server_url%/}"
 api_url="${GITHUB_API_URL:-https://api.github.com}"
 api_url="${api_url%/}"
 
-# github.com and GHE.com serve the API from an `api.` host and uploads from the matching
-# `uploads.` host. GitHub Enterprise Server serves both under its own host, at /api/v3 and
-# /api/uploads.
-case "$api_url" in
-  https://api.*) uploads_url="https://uploads.${api_url#https://api.}" ;;
-  *) uploads_url="${server_url}/api/uploads" ;;
-esac
+# github.com and GHE.com serve the API from `api.<server host>` and uploads from
+# `uploads.<server host>`. GitHub Enterprise Server serves both under its own host, at /api/v3
+# and /api/uploads, whatever that host is called.
+server_host="${server_url#https://}"
+if [[ "$api_url" == "https://api.${server_host}" ]]; then
+  uploads_url="https://uploads.${server_host}"
+else
+  uploads_url="${server_url}/api/uploads"
+fi
 
 enterprise_hint=''
 if [[ "$server_url" != 'https://github.com' ]]; then

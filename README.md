@@ -125,8 +125,12 @@ variant. It takes the same inputs, gives the same outputs, and uses the same tag
 ```
 
 It differs from the main action in one step: the breakdown file is uploaded with
-`upload-artifact@v3.2.2-node20`. Both variants fetch the baseline through the REST API, so neither needs
+`upload-artifact@v3.2.1-node20`. Both variants fetch the baseline through the REST API, so neither needs
 `download-artifact`. See [ADR-0007](docs/adr/0007-github-enterprise-server.md).
+
+GHES serves `actions/upload-artifact` from its own bundled copy. The step is pinned to the
+`v3.2.1-node20` commit (`c24449f3`, September 2024), so that copy has to include it. It does on any
+instance whose `actions/upload-artifact` has the `v3.2.1-node20` tag.
 
 Your runners and instance also need:
 

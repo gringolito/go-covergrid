@@ -118,6 +118,14 @@ test('on GitHub Enterprise Server it uploads to the server and accepts an asset 
   assert.strictEqual(outputs.url, GHES_ASSET)
 })
 
+// A GHES may itself be called api.<something>; that does not make it github.com's layout.
+test('a GHES whose own host starts with api. still uploads under /api/uploads', async () => {
+  const { args } = await run({
+    env: { GITHUB_SERVER_URL: 'https://api.corp.example', GITHUB_API_URL: 'https://api.corp.example/api/v3' },
+  })
+  assert.match(args, /https:\/\/api\.corp\.example\/api\/uploads\/user-attachments\/assets\?/)
+})
+
 test('on GHE.com it uploads to the uploads host beside the API host', async () => {
   const { args } = await run({
     reply: '{"url":"https://acme.ghe.com/user-attachments/assets/x"}',

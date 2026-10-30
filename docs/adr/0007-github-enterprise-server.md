@@ -65,8 +65,15 @@ root `action.yml` but not `ghes/action.yml`, which is intended: the v3 pin must 
 other pins, such as the Coverage Gate, still have to match. Run `node scripts/build-ghes-action.js` on
 the Dependabot branch.
 
-**The GHES variant hasn't run on a real GHES.** The REST endpoints, the `v3.2.2-node20` upload and the
-artifact zip format are all documented for GHES. The user-attachment upload endpoint isn't. If a GHES
+**The upload pin is v3.2.1-node20, not the newer v3.2.2-node20.** GHES serves `actions/upload-artifact`
+from its bundled local copy, so a SHA pin resolves only on an instance that carries that commit.
+`c24449f3` (v3.2.1-node20, September 2024) is where `v3-node20` points on github.com and on the GHES
+we checked, so any instance bundling v3.2.1-node20 or later has it. `c6a3b2bd` (v3.2.2-node20, March
+2026) only refreshes dependencies, and instances bundled before it shipped may not have it.
+
+**The GHES variant hasn't run a workflow on a real GHES yet.** A read-only check on a GHES 3.21.6
+instance found both candidate commits in its bundled `actions/upload-artifact`. The REST endpoints and the
+artifact zip format are documented for GHES. The user-attachment upload endpoint isn't. If a GHES
 doesn't offer it, the publish step warns and the comment is posted without the picture, as with a
 missing token.
 

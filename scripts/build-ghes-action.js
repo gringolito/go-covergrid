@@ -15,7 +15,11 @@ const ROOT = path.join(__dirname, '..')
 const SOURCE = path.join(ROOT, 'action.yml')
 const TARGET = path.join(ROOT, 'ghes', 'action.yml')
 
-const GHES_UPLOAD_ARTIFACT = 'actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20'
+// GHES resolves this against its bundled copy of actions/upload-artifact, so the pin must be
+// a commit older instances carry: v3.2.1-node20, where `v3-node20` points on github.com and GHES.
+const GHES_UPLOAD_ARTIFACT = 'actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20'
+
+const ARTIFACT_ACTION = /^(\s*(?:-\s+)?)uses: actions\/(upload|download)-artifact@.*$/gm
 
 const HEADER = [
   '# GENERATED from action.yml by scripts/build-ghes-action.js. Do not edit by hand.',
@@ -28,8 +32,8 @@ const HEADER = [
  * @returns {string} the contents of ghes/action.yml
  */
 function ghesAction(text) {
-  const artifactActions = [...text.matchAll(/^\s*(?:- )?uses: actions\/(upload|download)-artifact@.*$/gm)]
-  if (artifactActions.length !== 1 || artifactActions[0][1] !== 'upload') {
+  const artifactActions = [...text.matchAll(ARTIFACT_ACTION)]
+  if (artifactActions.length !== 1 || artifactActions[0][2] !== 'upload') {
     throw new Error('action.yml must use actions/upload-artifact exactly once and actions/download-artifact never')
   }
 
@@ -38,7 +42,7 @@ function ghesAction(text) {
 
   const body = text
     .replace(/^name: (.+)$/m, 'name: $1-ghes')
-    .replace(/^(\s*)uses: actions\/upload-artifact@.*$/m, `$1uses: ${GHES_UPLOAD_ARTIFACT}`)
+    .replace(ARTIFACT_ACTION, `$1uses: ${GHES_UPLOAD_ARTIFACT}`)
     .replaceAll('${GITHUB_ACTION_PATH}/', '${GITHUB_ACTION_PATH}/../')
 
   return HEADER + body

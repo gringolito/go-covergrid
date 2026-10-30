@@ -120,7 +120,7 @@ runs:
         diff-threshold: ${{ inputs.diff-threshold }}
 
     - name: Upload the breakdown file for the next run's baseline
-      uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20
+      uses: actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
       with:
         name: ${{ inputs.breakdown-artifact }}
         path: ${{ steps.prepare.outputs.breakdown }}
