@@ -23,7 +23,7 @@ if [[ "$api_url" == "https://api.${server_host}" ]]; then
   uploads_url="https://uploads.${server_host}"
 else
   uploads_url="${server_url}/api/uploads"
-  enterprise_hint=' On GitHub Enterprise Server this can also mean the server does not offer user-attachment uploads.'
+  enterprise_hint=' On GitHub Enterprise Server this is expected: it does not accept token uploads of user attachments.'
 fi
 
 # `--retry` logs every attempt it abandons on stderr, so stderr goes to its own file and is

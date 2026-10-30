@@ -141,9 +141,9 @@ test('on GitHub Enterprise Server an asset on github.com is refused', async () =
   assert.strictEqual(outputs.url, '')
 })
 
-test('a 404 on GitHub Enterprise Server also suggests the server may lack the endpoint', async () => {
+test('a 404 on GitHub Enterprise Server says the server does not take attachment uploads', async () => {
   const { stdout } = await run({ status: '404', reply: '{"message":"Not Found"}', env: GHES })
-  assert.match(stdout, /does not offer user-attachment uploads/)
+  assert.match(stdout, /does not accept token uploads of user attachments/)
 })
 
 test('a 404 on github.com or GHE.com does not blame the server', async () => {

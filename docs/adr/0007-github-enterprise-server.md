@@ -44,7 +44,8 @@ URLs on the server's host are accepted.
 
 - Dependabot doesn't scan `ghes/`, so it never bumps the v3 pin. Its PRs that touch `action.yml` fail
   CI until someone runs `node scripts/build-ghes-action.js`.
-- GHES may not offer the user-attachment endpoint. In that case the comment is posted without the
-  picture.
+- GHES doesn't accept token uploads of user attachments (`gh` refuses `--attach` on enterprise hosts),
+  so on GHES the comment is posted without the picture. The upload is still attempted, in case a later
+  release adds the endpoint.
 - GHES runners need Linux with Docker and egress to `ghcr.io` for the Coverage Gate, and `node` on
   `PATH`. The instance needs GitHub Connect or actions-sync.

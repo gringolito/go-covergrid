@@ -140,8 +140,10 @@ Your runners and instance also need:
 - **GitHub Connect or actions-sync**, so the runner can fetch this action and
   `vladopajic/go-test-coverage`.
 
-For the Grid Map image, the upload goes to your server's `/api/uploads`. Not every GHES version offers
-user-attachment uploads. If yours doesn't, the action warns and posts the comment without the image.
+GitHub Enterprise Server doesn't accept token uploads of user attachments, so the Grid Map image isn't
+available there. `gh` refuses `--attach` on enterprise hosts for the same reason. The action still
+tries `/api/uploads` in case a future GHES release adds it. When it's refused, the action warns and
+posts the comment without the image.
 
 ## Reading a Grid Map
 
