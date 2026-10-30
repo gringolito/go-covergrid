@@ -32,8 +32,9 @@ URLs on the server's host are accepted.
 ## Rejected
 
 - **One `action.yml` that picks the upload step with `if:`.** The runner resolves every nested `uses:`
-  at job setup, even for skipped steps. The v7 pin doesn't resolve on GHES, so the job would fail
-  before any step ran.
+  at job setup, even for skipped steps. With GitHub Connect, GHES fetches the v7 pin from github.com
+  (it then fails only when run, with `GHESNotSupportedError`). Without Connect, an instance has only
+  what actions-sync mirrored, and a missing v7 pin fails the job before any step runs.
 - **A `-ghes` tag line.** It needs a release job to rewrite and retag. `update-moving-tags.yml` would
   also turn `v1.4.0-ghes` into `v1`.
 - **A hand-maintained copy.** A composite can't call a sibling composite, so the file must be a copy,
