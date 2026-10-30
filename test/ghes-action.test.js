@@ -18,6 +18,8 @@ test('the GHES action uploads with upload-artifact v3 and downloads with no arti
   const artifactActions = [...generated.matchAll(/uses: (actions\/\S+-artifact@\S+.*)$/gm)].map((m) => m[1])
   assert.deepStrictEqual(artifactActions, [GHES_UPLOAD_ARTIFACT])
   assert.match(GHES_UPLOAD_ARTIFACT, /@[0-9a-f]{40} # v3\./)
+  const indent = (text) => /^( *)(?:- )?uses: actions\/upload-artifact@/m.exec(text)[1]
+  assert.strictEqual(indent(generated), indent(SOURCE_TEXT), 'the repinned upload moved out of its step')
 })
 
 // GITHUB_ACTION_PATH is ghes/ for this variant, so the shipped files are one level up.
