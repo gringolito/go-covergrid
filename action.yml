@@ -87,34 +87,24 @@ runs:
       run: |
         set -euo pipefail
         work="${RUNNER_TEMP}/go-covergrid"
-        mkdir -p "${work}/baseline"
+        mkdir -p "${work}"
         {
           echo "work=${work}"
           echo "breakdown=${work}/coverage-breakdown.txt"
-          echo "baseline-dir=${work}/baseline"
           echo "baseline-breakdown=${work}/baseline/coverage-breakdown.txt"
           echo "grid-map=${work}/grid-map.svg"
           echo "is-pull-request=${IS_PULL_REQUEST}"
         } >>"$GITHUB_OUTPUT"
 
-    - name: Find the baseline run
-      id: baseline-run
+    - name: Fetch the baseline breakdown file
+      id: baseline
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         BASE_BRANCH: ${{ inputs.base-branch }}
-      run: node "${GITHUB_ACTION_PATH}/src/find-baseline.js"
-
-    - name: Download the baseline breakdown file
-      id: baseline-download
-      if: steps.baseline-run.outputs.run-id != ''
-      continue-on-error: true
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-      with:
-        name: ${{ inputs.breakdown-artifact }}
-        path: ${{ steps.prepare.outputs.baseline-dir }}
-        run-id: ${{ steps.baseline-run.outputs.run-id }}
-        github-token: ${{ inputs.github-token }}
+        BREAKDOWN_ARTIFACT: ${{ inputs.breakdown-artifact }}
+        BASELINE_PATH: ${{ steps.prepare.outputs.baseline-breakdown }}
+      run: node "${GITHUB_ACTION_PATH}/src/fetch-baseline.js"
 
     - name: Run the coverage gate
       id: gate
@@ -124,7 +114,7 @@ runs:
         config: ${{ inputs.config }}
         profile: ${{ inputs.profile }}
         breakdown-file-name: ${{ steps.prepare.outputs.breakdown }}
-        diff-base-breakdown-file-name: ${{ steps.baseline-download.outcome == 'success' && steps.prepare.outputs.baseline-breakdown || '' }}
+        diff-base-breakdown-file-name: ${{ steps.baseline.outputs.path }}
         diff-threshold: ${{ inputs.diff-threshold }}
 
     - name: Upload the breakdown file for the next run's baseline
@@ -163,11 +153,11 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         COVERAGE_OUTCOME: ${{ steps.gate.outcome }}
-        HAS_BASELINE: ${{ steps.baseline-download.outcome == 'success' }}
+        HAS_BASELINE: ${{ steps.baseline.outputs.path != '' }}
         DIFF_THRESHOLD: ${{ inputs.diff-threshold }}
         BASE_BRANCH: ${{ inputs.base-branch }}
         CURRENT_BREAKDOWN_PATH: ${{ steps.prepare.outputs.breakdown }}
-        BASE_BREAKDOWN_PATH: ${{ steps.prepare.outputs.baseline-breakdown }}
+        BASE_BREAKDOWN_PATH: ${{ steps.baseline.outputs.path }}
         IMAGE_URL: ${{ steps.publish.outputs.url }}
       run: node "${GITHUB_ACTION_PATH}/src/post-comment.js"
 

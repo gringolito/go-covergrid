@@ -106,7 +106,7 @@ test('no node script is invoked by a relative path', () => {
 // Third-party actions must be pinned to a full commit SHA, not a moving tag.
 test('every third-party action is pinned to a 40-character SHA', () => {
   const uses = [...TEXT.matchAll(/^\s*uses: (\S+)/gm)].map((m) => m[1])
-  assert.ok(uses.length >= 3)
+  assert.ok(uses.length >= 2)
   for (const ref of uses) {
     assert.match(ref, /@[0-9a-f]{40}$/, `${ref} is not pinned to a commit SHA`)
   }
