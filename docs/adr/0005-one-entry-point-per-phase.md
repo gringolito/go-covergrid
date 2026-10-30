@@ -32,9 +32,8 @@ next run's comparison. The metadata-syntax docs support `continue-on-error` on c
 
 ## Untested paths
 
-The gate, renderer, and comment have run against real repositories. The baseline fetch has extracted a
-real github.com artifact byte-identical to `gh run download`'s. The publish path hasn't run against a
-real repository.
+The gate, renderer, and comment have run against real repositories. The publish path hasn't run against
+a real repository.
 
 The split works because the baseline fetch and the publish path degrade instead of breaking. That also
 means a failure produces no error, so don't trust either path on a green run alone.

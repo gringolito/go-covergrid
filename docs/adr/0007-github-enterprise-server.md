@@ -33,8 +33,8 @@ URLs on the server's host are accepted.
 
 - **One `action.yml` that picks the upload step with `if:`.** The runner resolves every nested `uses:`
   at job setup, even for skipped steps. Whether the v7 pin resolves depends on each instance's copy of
-  `actions/upload-artifact`. The GHES we tested had it, so v7 failed only when run, with
-  `GHESNotSupportedError`. An instance whose copy lacks it fails the job before any step runs.
+  `actions/upload-artifact`. Where the copy has it, v7 fails only when run, with
+  `GHESNotSupportedError`. Where it doesn't, the job fails before any step runs.
 - **A `-ghes` tag line.** It needs a release job to rewrite and retag. `update-moving-tags.yml` would
   also turn `v1.4.0-ghes` into `v1`.
 - **A hand-maintained copy.** A composite can't call a sibling composite, so the file must be a copy,
