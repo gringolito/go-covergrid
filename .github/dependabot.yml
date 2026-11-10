@@ -1,13 +1,23 @@
 version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+
+# action.yml and ghes/action.yml must stay in lockstep (check-generated), so one PR bumps both.
+multi-ecosystem-groups:
+  actions:
     schedule:
       interval: "daily"
     commit-message:
       prefix: "chore(deps)"
-    groups:
-      dependencies:
-        update-types:
-          - "minor"
-          - "patch"
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "actions"
+
+  # GHES only runs upload-artifact v3 (ADR-0007); its pin lives in scripts/build-ghes-action.js.
+  - package-ecosystem: "github-actions"
+    directory: "/ghes"
+    patterns: ["*"]
+    multi-ecosystem-group: "actions"
+    ignore:
+      - dependency-name: "actions/upload-artifact"
