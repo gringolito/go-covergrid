@@ -1,4 +1,4 @@
-# Grid Map geometry: flat squarified treemap in an 830px coordinate space, height grows with package count
+# Grid Map geometry: flat squarified treemap in a 962px coordinate space, height grows with package count
 
 The Grid Map is a **flat squarified treemap** (Bruls, Huizing, van Wijk). Each Package gets one Tile,
 with area proportional to Statement count and no nesting. Squarified layout gives good aspect ratios
@@ -8,7 +8,7 @@ large Statement spreads turn it into ribbons too thin to label.
 Nested treemaps exist elsewhere. This layout is flat because the Coverage Gate defines a Package as the
 path before the last `/`, with no rollup, and the Grid Map follows that definition.
 
-The coordinate space is 830px, matches GitHub's comment column width, and is not configurable. The
+The coordinate space is 962px, matches GitHub's comment column width, and is not configurable. The
 height grows with Package count and is capped, so the image never becomes a ribbon that needs scrolling.
 A legend sits below the Tiles.
 

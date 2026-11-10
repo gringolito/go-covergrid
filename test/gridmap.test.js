@@ -26,15 +26,15 @@ const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map(
 // ADR-0004: the coordinate space is GitHub's comment content width, so a font-size in this
 // source is the size the reader sees.
 test('the canvas width is GitHub comment width, not an arbitrary larger number', () => {
-  assert.strictEqual(CANVAS_WIDTH, 830)
+  assert.strictEqual(CANVAS_WIDTH, 962)
 })
 
-test('height starts at 467 and grows with package count', () => {
-  assert.strictEqual(BASE_HEIGHT, 467)
-  assert.strictEqual(gridMapHeight(1), 467)
-  assert.strictEqual(gridMapHeight(24), 467)
-  assert.strictEqual(gridMapHeight(25), 473)
-  assert.strictEqual(gridMapHeight(120), 1043)
+test('height starts at 541 and grows with package count', () => {
+  assert.strictEqual(BASE_HEIGHT, 541)
+  assert.strictEqual(gridMapHeight(1), 541)
+  assert.strictEqual(gridMapHeight(24), 541)
+  assert.strictEqual(gridMapHeight(25), 548)
+  assert.strictEqual(gridMapHeight(120), 1213)
   assert.ok(gridMapHeight(120) > gridMapHeight(60))
 })
 
@@ -75,12 +75,12 @@ test('the document is well-formed at both fixture sizes', () => {
   }
 })
 
-test('the viewBox is 830 wide and as tall as the package count demands', () => {
+test('the viewBox is 962 wide and as tall as the package count demands', () => {
   const { svg } = renderGridMap({ stats: fixture('sample-breakdown.txt') })
-  assert.match(svg, new RegExp(`viewBox="0 0 830 ${gridMapHeight(18) + LEGEND_H}"`))
+  assert.match(svg, new RegExp(`viewBox="0 0 962 ${gridMapHeight(18) + LEGEND_H}"`))
 
   const big = renderGridMap({ stats: fixture('big-breakdown.txt') })
-  assert.match(big.svg, new RegExp(`viewBox="0 0 830 ${gridMapHeight(120) + LEGEND_H}"`))
+  assert.match(big.svg, new RegExp(`viewBox="0 0 962 ${gridMapHeight(120) + LEGEND_H}"`))
 })
 
 test('the reported total matches the breakdown file', () => {
@@ -202,7 +202,7 @@ test('the sample fixture labels the number of packages ADR-0004 claims', () => {
     else unnamed++
   }
 
-  assert.deepStrictEqual({ fullPath, lastSegment, unnamed }, { fullPath: 13, lastSegment: 4, unnamed: 1 })
+  assert.deepStrictEqual({ fullPath, lastSegment, unnamed }, { fullPath: 14, lastSegment: 4, unnamed: 0 })
 
   const percentages = texts(svg).filter((t) => /^\d+\.\d%$/.test(t.body)).length
   assert.strictEqual(percentages, tiles.length, 'every tile carries its coverage ratio')
@@ -212,7 +212,7 @@ test('the 120-package fixture gets a percentage onto the count ADR-0004 claims',
   const { svg, tiles } = renderGridMap({ stats: fixture('big-breakdown.txt') })
   assert.strictEqual(tiles.length, 120)
   const percentages = texts(svg).filter((t) => /^\d+\.\d%$/.test(t.body)).length
-  assert.strictEqual(percentages, 112, 'the other 8 are chips too small for a number')
+  assert.strictEqual(percentages, 114, 'the other 6 are chips too small for a number')
 })
 
 /** Text runs grouped per Tile, as vertical extents reconstructed from the output. */
