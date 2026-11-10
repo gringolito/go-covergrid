@@ -14,13 +14,13 @@ const { squarify } = require('./treemap.js')
  * GitHub's comment content column. The coordinate space is the display width, so a
  * font-size in this file is the size the reader sees (ADR-0004).
  */
-const CANVAS_WIDTH = 830
-const BASE_HEIGHT = 467
+const CANVAS_WIDTH = 962
+const BASE_HEIGHT = 541
 /** Beyond this the picture is a thin strip nobody scrolls; tiny Tiles are chips either way. */
-const MAX_HEIGHT = 1245
+const MAX_HEIGHT = 1443
 /** Package count the base height labels without crowding. */
 const ROOMY_PACKAGE_COUNT = 24
-const HEIGHT_PER_EXTRA_PACKAGE = 6
+const HEIGHT_PER_EXTRA_PACKAGE = 7
 
 const LEGEND_H = 32
 const BACKGROUND = '#161b22'

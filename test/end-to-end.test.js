@@ -113,7 +113,7 @@ test('rendering writes a well-formed SVG and reports the totals as step outputs'
     const svg = fs.readFileSync(svgPath, 'utf8')
     assert.ok(svg.startsWith('<svg '), svg.slice(0, 40))
     assert.ok(svg.endsWith('</svg>'))
-    assert.match(svg, /viewBox="0 0 830 499"/)
+    assert.match(svg, /viewBox="0 0 962 573"/)
     assert.deepStrictEqual(wellFormed(svg), { ok: true })
 
     assert.deepStrictEqual(ws.outputs(), {
